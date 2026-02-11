@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+.env/
+.env.*
+
+# FastAPI / Uvicorn
+*.log
+uvicorn.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+
+# Ansible
+*.retry
+vault_pass.txt
+
+# Secrets
+secrets/
+*.pem
+*.key
+
+# Logs
+logs/
