@@ -1,0 +1,32 @@
+name: Ansible Deploy (Web=Nginx, App=Java)
+
+on:
+  workflow_dispatch: {}
+  push:
+   branches: ["main"]
+
+jobs:
+  run-ansible:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+
+      - name: Check if Ansible is Available By Default
+        run: |
+          ls -ltr        
+          ansible --version
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
+  
+
+      - name: Run playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+          
+        run: |
+          ls -ltr
+          ansible-playbook -i inventory/hosts.ini playbook/install.yml 
