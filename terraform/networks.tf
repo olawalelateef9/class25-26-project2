@@ -5,7 +5,7 @@ resource "aws_vpc" "project_network" {
   enable_dns_support   = true
 
   tags = {
-    Name = "Techbleat-VPC"
+    Name = "Techbleat_VPC"
   }
 }
 
@@ -26,7 +26,7 @@ resource "aws_subnet" "public_subnet" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "Techbleat-Public-Subnet"
+    Name = "Techbleat_Public-Subnet"
   }
 }
 
@@ -37,7 +37,7 @@ resource "aws_subnet" "private_subnet_1" {
   availability_zone = "${var.aws_region}a"
 
   tags = {
-    Name = "Techbleat-Private-App"
+    Name = "Techbleat_Private_Subnet"
   }
 }
 
@@ -49,7 +49,7 @@ resource "aws_subnet" "private_subnet_2" {
   availability_zone = "${var.aws_region}b"
 
   tags = {
-    Name = "Techbleat-Private-DB-Backup-AZ"
+    Name = "Techbleat_Private_DB_Backup_AZ"
   }
 }
 

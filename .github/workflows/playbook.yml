@@ -46,4 +46,4 @@ jobs:
           chmod 400 key.pem
 
           # Run the playbook
-          ansible-playbook -i inventory.ini ansible/install.yml
+          ansible-playbook -i inventory.ini playbook/install.yml
