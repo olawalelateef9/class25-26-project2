@@ -153,3 +153,11 @@ resource "aws_security_group" "db_sg" {
 output "rds_endpoint" {
   value = aws_db_instance.project_db.endpoint
 }
+
+output "bastion_public_ip" {
+  value = aws_instance.bastion.public_ip
+}
+
+output "backend_private_ip" {
+  value = aws_instance.backend[0].private_ip
+}

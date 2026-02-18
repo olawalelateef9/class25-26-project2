@@ -1,32 +1,49 @@
-name: Ansible Deploy (Web=Nginx, App=Java)
-
-on:
-  workflow_dispatch: {}
-  push:
-   branches: ["main"]
+name: Techbleat Capstone Pipeline
+on: [push]
 
 jobs:
-  run-ansible:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 1. SECURITY SCANS (Requirement 5)
+      - name: Run Bandit (SAST)
+        run: pip install bandit && bandit -r ./app
 
+      # 2. TERRAFORM (Requirement 3)
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false # Crucial for getting outputs
 
-      - name: Check if Ansible is Available By Default
+      - name: Terraform Init & Apply
+        id: tf
         run: |
-          ls -ltr        
-          ansible --version
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
-  
-
-      - name: Run playbook
+          cd terraform
+          terraform init
+          terraform apply -auto-approve
+          # This line captures the IP and saves it for the next step
+          echo "BASTION_IP=$(terraform output -raw bastion_public_ip)" >> $GITHUB_ENV
+          echo "BACKEND_IP=$(terraform output -raw backend_private_ip)" >> $GITHUB_ENV
         env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-          
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # 3. ANSIBLE (Requirement 4 & 6)
+      - name: Run Ansible Playbook
         run: |
-          ls -ltr
-          ansible-playbook -i inventory/hosts.ini playbook/install.yml 
+          # Create a temporary inventory file using the IPs from Terraform
+          echo "[web]" > inventory.ini
+          echo "${{ env.BASTION_IP }} ansible_user=ubuntu ansible_ssh_private_key_file=key.pem" >> inventory.ini
+          
+          echo "[backend]" >> inventory.ini
+          echo "${{ env.BACKEND_IP }} ansible_user=ubuntu ansible_ssh_private_key_file=key.pem ansible_ssh_common_args='-o ProxyCommand=\"ssh -W %h:%p -q ubuntu@${{ env.BASTION_IP }}\"'" >> inventory.ini
+
+          # Set permissions for the SSH key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 400 key.pem
+
+          # Run the playbook
+          ansible-playbook -i inventory.ini ansible/install.yml
