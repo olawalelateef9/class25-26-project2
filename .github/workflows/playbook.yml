@@ -44,6 +44,8 @@ jobs:
           # Set permissions for the SSH key
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
           chmod 400 key.pem
+          # DISABLE HOST_KEY_CHECKING(SINCE WE'RE USING TEMPORARY HOSTS.INI')
+          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini playbook/install.yml
 
           # Run the playbook
           ansible-playbook -i inventory.ini playbook/install.yml
