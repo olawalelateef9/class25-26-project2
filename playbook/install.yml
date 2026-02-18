@@ -1,0 +1,69 @@
+---
+- name: Install Nginx
+  hosts: web
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install Nginx on any OS
+      ansible.builtin.package:
+        name: nginx
+        state: present
+
+    - name: Start and Enable Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Ensure Ubuntu listens on Port 80
+      ansible.builtin.copy:
+        content: |
+          server {
+              listen 80;
+              root /usr/share/nginx/html;
+              index index.html;
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+          }
+        dest: /etc/nginx/sites-enabled/ansible_deploy
+      when: ansible_facts['os_family'] == "Debian"
+      notify: Restart Nginx
+
+    - name: Remove default Nginx site on Ubuntu
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      when: ansible_facts['os_family'] == "Debian"
+      notify: Restart Nginx
+
+    - name: Create assets directory for nginx
+      ansible.builtin.file:
+        path: /usr/share/nginx/html/assets
+        state: directory
+        mode: '0755'
+
+    - name: Copy index file to Nginx default location
+      ansible.builtin.template:
+        src: templates/index.html.j2
+        dest: /usr/share/nginx/html/index.html
+        mode: '0644'
+
+    - name: Copy js file
+      ansible.builtin.copy:
+        src: ../nginx_artefacts/assets/app.js
+        dest: /usr/share/nginx/html/assets/app.js
+        mode: '0644'
+
+    - name: Copy css file
+      ansible.builtin.copy:
+        src: ../nginx_artefacts/assets/styles.css
+        dest: /usr/share/nginx/html/assets/styles.css
+        mode: '0644'
+
+  handlers:
+    - name: Restart Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted

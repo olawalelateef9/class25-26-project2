@@ -10,19 +10,26 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "public_subnet_cidr" {
+# Matches vpc.tf naming
+variable "public_subnet_1_cidr" {
   description = "CIDR block for public subnet 1"
   type        = string
   default     = "10.0.1.0/24"
 }
 
-
-variable "private_subnet_cidr" {
+# Matches vpc.tf naming
+variable "private_subnet_1_cidr" {
   description = "CIDR block for private subnet 1"
+  type        = string
+  default     = "10.0.2.0/24"
+}
+
+# NEW: Required for RDS Subnet Group (AZ 'b')
+variable "private_subnet_2_cidr" {
+  description = "CIDR block for private subnet 2"
   type        = string
   default     = "10.0.3.0/24"
 }
-
 
 variable "web_ami" {
   description = "AMI for web instances"
@@ -40,12 +47,6 @@ variable "instance_type" {
   description = "Instance type for EC2 instances"
   type        = string
   default     = "t2.small"
-}
-
-variable "vpc_id" {
-  description = "VPC ID for instances"
-  type        = string
-  default     = "vpc-0554333af64d61d92"
 }
 
 variable "key_name" {

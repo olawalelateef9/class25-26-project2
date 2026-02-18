@@ -19,51 +19,72 @@ provider "aws" {
   region = var.aws_region
 }
 
-# --- 1. WEB INSTANCES (Public) ---
-resource "aws_instance" "web" {
-  count                       = 1
+# --- 1. TERRAFORM CONFIGURATION ---
+terraform {
+  backend "s3" {
+    bucket  = "olawale-s3-devops-bucket"
+    key     = "envs/dev/terraform.tfstate"
+    region  = "us-east-2"
+    encrypt = true
+  }
+  required_version = ">= 1.6.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# --- 2. COMPUTE RESOURCES ---
+
+# BASTION HOST (Public Subnet)
+# Provides secure administrative access (SSH) to private instances [cite: 26, 43]
+resource "aws_instance" "bastion" {
   ami                         = var.web_ami
-  instance_type               = var.instance_type
-  subnet_id                   = count.index == 0 ? aws_subnet.public_subnet.id 
-  vpc_security_group_ids      = [aws_security_group.web_sg.id]
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.public_subnet.id
+  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
   key_name                    = var.key_name
   associate_public_ip_address = true
 
-  tags = { Name = "web-instance-${count.index + 1}" }
+  tags = { Name = "Techbleat-Bastion" }
 }
 
-# --- 2. BACKEND INSTANCES (Private) ---
+# BACKEND INSTANCE (Private Subnet)
+# Runs the FastAPI application portal [cite: 25, 28]
 resource "aws_instance" "backend" {
   count                  = 1
   ami                    = var.backend_ami
   instance_type          = var.instance_type
-  subnet_id              = count.index == 0 ? aws_subnet.private_subnet.id 
+  subnet_id              = aws_subnet.private_subnet_1.id 
   vpc_security_group_ids = [aws_security_group.backend_sg.id]
   key_name               = var.key_name
   associate_public_ip_address = false
 
   tags = { Name = "backend-instance-${count.index + 1}" }
 
-  # --- Automated Database Connection ---
+  # Automated Database Connection String 
   user_data = <<-EOF
   #!/bin/bash
-  echo "DATABASE_URL=postgresql://postgres:Youngman9!@${aws_db_instance.project_db.endpoint}:5432/postgres" > /home/ec2-user/.env
-  # IMPORTANT: Update the line below to match your service name!
+  echo "DATABASE_URL=postgresql://postgres:Youngman9!@${aws_db_instance.project_db.endpoint}:5432/postgres" > /home/ubuntu/.env
   sudo systemctl restart app
   EOF
 }
 
-# --- 3. DATABASE RESOURCES ---
+# --- 3. DATABASE RESOURCES (Private Tier) ---
 
-# NEW: DB Subnet Group (Fixes the "2 AZ requirement" error)
 resource "aws_db_subnet_group" "project_db_subnet_group" {
   name       = "project-db-subnet-group"
   subnet_ids = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
-
   tags = { Name = "Project DB Subnet Group" }
 }
 
-# The Database Instance
 resource "aws_db_instance" "project_db" {
   identifier           = "project-database"
   engine               = "postgres"
@@ -71,32 +92,24 @@ resource "aws_db_instance" "project_db" {
   allocated_storage    = 20
   username             = "postgres"
   password             = "Youngman9!" 
-  
   db_subnet_group_name = aws_db_subnet_group.project_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
-  
   skip_final_snapshot  = true
   publicly_accessible  = false
 }
 
-# --- 4. SECURITY GROUPS ---
+# --- 4. SECURITY GROUPS (Firewalls) ---
 
-resource "aws_security_group" "web_sg" {
-  name   = "web-sg"
+# Bastion SG: Entrance for Admin/Ops [cite: 21, 22]
+resource "aws_security_group" "bastion_sg" {
+  name   = "bastion-sg"
   vpc_id = aws_vpc.project_network.id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] # Suggestion: Change to your specific IP for better security
   }
 
   egress {
@@ -107,48 +120,23 @@ resource "aws_security_group" "web_sg" {
   }
 }
 
-resource "aws_security_group" "jenkins_sg" {
-  name   = "jenkins-sg"
-  vpc_id = aws_vpc.project_network.id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
+# Backend SG: Allows traffic from Load Balancer and Bastion only [cite: 41, 43]
 resource "aws_security_group" "backend_sg" {
   name   = "backend-sg"
   vpc_id = aws_vpc.project_network.id
 
   ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id] 
   }
 
   ingress {
-    from_port       = 8000
-    to_port         = 8000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.web_sg.id]
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"] # Traffic from public subnet (ALB tier)
   }
 
   egress {
@@ -159,6 +147,7 @@ resource "aws_security_group" "backend_sg" {
   }
 }
 
+# DB SG: Allows SQL queries only from the backend app [cite: 13, 19]
 resource "aws_security_group" "db_sg" {
   name        = "db-sg"
   description = "Allow inbound traffic from backend only"
@@ -168,7 +157,7 @@ resource "aws_security_group" "db_sg" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.backend_sg.id] # Handshake
+    security_groups = [aws_security_group.backend_sg.id] 
   }
 
   egress {
