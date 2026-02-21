@@ -1,0 +1,13 @@
+---
+- name: Deploy Application Tier
+  hosts: appserver
+  become: true
+  roles:
+    - { role: app_servers, tags: ["app"] }
+
+# PART 3: Database Tier Deployment (Runs only on dbserver)
+- name: Deploy Database Tier
+  hosts: db_servers
+  become: true
+  roles:
+    - { role: db_servers, tags: ["db"] }
