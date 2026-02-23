@@ -1,14 +1,12 @@
 ---
-- name: Install PostgreSQL client and development headers
+- name: Install PostgreSQL client and Pip
   dnf:
     name: 
       - postgresql15
-      - postgresql15-devel
       - python3-pip
-      - gcc
-      - python3-devel
     state: present
 
-- name: Install psycopg2 via pip (needed for Ansible postgresql modules)
+- name: Install psycopg2-binary via pip
   pip:
     name: psycopg2-binary
+    state: present

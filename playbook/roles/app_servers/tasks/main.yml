@@ -1,7 +1,9 @@
 ---
 - name: Install Git and Python3
   dnf:
-    name: [git, python3-pip]
+    name: 
+      - git
+      - python3-pip
     state: present
 
 - name: Clone the FastAPI Repository
@@ -9,14 +11,27 @@
     repo: 'https://github.com/olawalelateef9/class25-26-project2.git'
     dest: /home/ec2-user/app
     version: main
+    force: yes
 
 - name: Install App dependencies
   pip:
     requirements: /home/ec2-user/app/requirements.txt
+    state: present
 
-- name: Start FastAPI in background
+- name: Start FastAPI in background with DB URL
   shell: |
     cd /home/ec2-user/app
+    # We pass the RDS endpoint as an environment variable
+    export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint }}:5432/{{ db_name }}"
     nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
-  async: 10
+  async: 60
   poll: 0
+
+- name: Wait for FastAPI to start (Health Check)
+  uri:
+    url: "http://localhost:8000/"
+    status_code: 200
+  register: result
+  until: result.status == 200
+  retries: 10
+  delay: 5

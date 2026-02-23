@@ -54,3 +54,21 @@ variable "key_name" {
   type        = string
   default     = "jenkinskp"
 }
+
+variable "db_password" {
+  description = "The password for the RDS database"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_user" {
+  description = "The username for the RDS database"
+  type        = string
+  default     = "postgres"
+}
+
+variable "db_name" {
+  description = "The name of the database to create"
+  type        = string
+  default     = "mydb"
+}

@@ -72,7 +72,7 @@ resource "aws_db_instance" "project_db" {
   instance_class       = "db.t4g.micro"
   allocated_storage    = 20
   username             = "postgres"
-  password             = "Youngman9!" 
+  password             = "var.db_password" 
   db_subnet_group_name = aws_db_subnet_group.project_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
   skip_final_snapshot  = true
@@ -152,6 +152,10 @@ resource "aws_security_group" "db_sg" {
 # --- 5. OUTPUTS ---
 output "rds_endpoint" {
   value = aws_db_instance.project_db.endpoint
+}
+
+output "db_name" {
+  value = aws_db_instance.project_db.db_name
 }
 
 output "bastion_public_ip" {
