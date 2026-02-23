@@ -45,7 +45,7 @@ jobs:
 
           # 2. Setup the SSH key with proper formatting
           # Using printf ensures the key preserves newlines and doesn't get corrupted by libcrypto
-          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
           chmod 400 key.pem
 
           # 3. Run the playbook once using the correct path to install.yml
