@@ -1,8 +1,0 @@
-aws_region            = "us-east-2"
-vpc_cidr              = "10.0.0.0/16"
-public_subnet_cidr  = "10.0.1.0/24"
-private_subnet_cidr = "10.0.3.0/24"
-web_ami               = "ami-0c613eb0498cd4917"
-backend_ami           = "ami-0d1bf736a548b7e67"
-instance_type         = "t2.small"
-key_name              = "jenkinskp"
