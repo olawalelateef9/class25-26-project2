@@ -45,6 +45,7 @@ docker-compose.override.yml
 *.tfstate.*
 terraform.tfvars
 crash.log
+terraform/def.tfvars
 
 # Ansible
 *.retry
@@ -57,4 +58,3 @@ secrets/
 
 # Logs
 logs/
-terraform/def.tfvars
