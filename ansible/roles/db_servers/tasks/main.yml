@@ -1,2 +1,14 @@
 ---
-# tasks file for ansible/roles/db_servers
+- name: Install PostgreSQL client and development headers
+  dnf:
+    name: 
+      - postgresql15
+      - postgresql15-devel
+      - python3-pip
+      - gcc
+      - python3-devel
+    state: present
+
+- name: Install psycopg2 via pip (needed for Ansible postgresql modules)
+  pip:
+    name: psycopg2-binary

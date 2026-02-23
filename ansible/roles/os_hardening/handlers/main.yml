@@ -1,2 +1,5 @@
 ---
-# handlers file for ansible/roles/os_hardening
+- name: restart sshd
+  service:
+    name: sshd
+    state: restarted

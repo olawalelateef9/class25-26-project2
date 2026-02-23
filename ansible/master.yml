@@ -5,9 +5,21 @@
   roles:
     - { role: app_servers, tags: ["app"] }
 
-# PART 3: Database Tier Deployment (Runs only on dbserver)
+
 - name: Deploy Database Tier
   hosts: db_servers
   become: true
   roles:
     - { role: db_servers, tags: ["db"] }
+
+- name: Apply Hardening
+  hosts: all
+  become: true
+  roles:
+    - { role: os_hardening, tags: ["hardening"] }
+
+- name: Apply Vunerability_scanning
+  hosts: all
+  become: true
+  roles:
+    - { role: vulnerability_scanning, tags: ["vulnerability"] }    

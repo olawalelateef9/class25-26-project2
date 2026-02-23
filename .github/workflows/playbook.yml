@@ -36,10 +36,10 @@ jobs:
         run: |
           # Create a temporary inventory file using the IPs from Terraform
           echo "[web]" > inventory.ini
-          echo "${{ env.BASTION_IP }} ansible_user=ubuntu ansible_ssh_private_key_file=key.pem" >> inventory.ini
+          echo "${{ env.BASTION_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
           
           echo "[backend]" >> inventory.ini
-          echo "${{ env.BACKEND_IP }} ansible_user=ubuntu ansible_ssh_private_key_file=key.pem ansible_ssh_common_args='-o ProxyCommand=\"ssh -W %h:%p -q ubuntu@${{ env.BASTION_IP }}\"'" >> inventory.ini
+          echo "${{ env.BACKEND_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem ansible_ssh_common_args='-o ProxyCommand=\"ssh -W %h:%p -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@${{ env.BASTION_IP }}\"'" >> inventory.ini
 
           # Set permissions for the SSH key
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
@@ -50,9 +50,4 @@ jobs:
           # Run the playbook
           ansible-playbook -i inventory.ini playbook/install.yml
 
-      - name: Deploying app server
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: false      
-        run: |
-          cd ansible
-          ansible-playbook  -i inventory.ini  master.yml --tags app_servers -v         
+      

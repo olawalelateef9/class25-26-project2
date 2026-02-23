@@ -1,2 +1,22 @@
 ---
-# tasks file for ansible/roles/app_servers
+- name: Install Git and Python3
+  dnf:
+    name: [git, python3-pip]
+    state: present
+
+- name: Clone the FastAPI Repository
+  git:
+    repo: 'https://github.com/olawalelateef9/class25-26-project2.git'
+    dest: /home/ec2-user/app
+    version: main
+
+- name: Install App dependencies
+  pip:
+    requirements: /home/ec2-user/app/requirements.txt
+
+- name: Start FastAPI in background
+  shell: |
+    cd /home/ec2-user/app
+    nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+  async: 10
+  poll: 0

@@ -1,2 +1,36 @@
 ---
-# tasks file for ansible/roles/os_hardening
+- name: Update all security packages
+  dnf:
+    name: "*"
+    state: latest
+    update_cache: yes
+
+- name: Disable SSH password authentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+  notify: restart sshd
+
+- name: Install and start Firewalld
+  dnf:
+    name: firewalld
+    state: present
+
+- name: Start and enable Firewalld
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Allow SSH and App Port (8000)
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - '22'
+    - '8000'
+
