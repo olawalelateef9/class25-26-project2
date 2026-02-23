@@ -71,8 +71,15 @@ resource "aws_db_instance" "project_db" {
   engine               = "postgres"
   instance_class       = "db.t4g.micro"
   allocated_storage    = 20
+  
+  # FIX 1: Add the database name so it's not empty
+  db_name              = "mydb" 
+  
   username             = "postgres"
-  password             = "var.db_password" 
+  
+  # FIX 2: Remove quotes so it uses the variable value, not a string
+  password             = var.db_password 
+  
   db_subnet_group_name = aws_db_subnet_group.project_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
   skip_final_snapshot  = true

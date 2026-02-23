@@ -35,3 +35,6 @@
     - '22'
     - '8000'
 
+- name: Reset connection to refresh SSH tunnel after firewall changes
+  meta: reset_connection    
+

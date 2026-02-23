@@ -22,11 +22,11 @@
   shell: pkill python3 || true
   ignore_errors: yes    
 
-- name: Start FastAPI in background with DB URL
+- name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
-    # We pass the RDS endpoint as an environment variable
-    export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint }}:5432/{{ db_name }}"
+    # Using 'mydb' to match the db_name we just added to Terraform
+    export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint }}:5432/mydb"
     nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
   async: 60
   poll: 0
