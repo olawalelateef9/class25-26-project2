@@ -49,3 +49,10 @@ jobs:
 
           # Run the playbook
           ansible-playbook -i inventory.ini playbook/install.yml
+
+      - name: Deploying app server
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: false      
+        run: |
+          cd ansible
+          ansible-playbook  -i inventory.ini  master.yml --tags app_servers -v         
