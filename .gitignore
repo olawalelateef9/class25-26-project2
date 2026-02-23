@@ -57,3 +57,4 @@ secrets/
 
 # Logs
 logs/
+terraform/def.tfvars
