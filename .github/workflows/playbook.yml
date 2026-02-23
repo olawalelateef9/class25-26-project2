@@ -8,13 +8,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. SECURITY SCANS (Requirement 5)
-      - name: Run Bandit (SAST)
+      # 1. SECURITY SCANS (Local Runner Side)
+      - name: Run Bandit (Local SAST)
         run: |
           pip install bandit 
           bandit -r ./app || true 
 
-      # 2. TERRAFORM (Requirement 3)
+      # 2. TERRAFORM (Infrastructure Creation)
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -36,24 +36,38 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      # 3. ANSIBLE (Requirement 4 & 6)
+      # 3. ANSIBLE (Configuration & Deployment)
       - name: Run Ansible Playbook
         run: |
-          # 1. Create the dynamic inventory
+          # 1. Setup the SSH key
+          printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
+          chmod 400 key.pem
+
+          # 2. Create the dynamic inventory
+          # 'web' is your Bastion, 'backend' is your App Server
           echo "[web]" > inventory.ini
           echo "${{ env.BASTION_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
           
           echo "[backend]" >> inventory.ini
           echo "${{ env.BACKEND_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}\"'" >> inventory.ini
 
-          # 2. Setup the SSH key for the Runner
-          printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
-          chmod 400 key.pem
-
-          # 3. Run the playbook with dynamic DB variables
+          # 3. Run the optimized playbook
           export ANSIBLE_HOST_KEY_CHECKING=False
           ansible-playbook -i inventory.ini playbook/install.yml --extra-vars \
             "rds_endpoint=${{ env.RDS_ENDPOINT }} \
              db_user=postgres \
              db_password=${{ secrets.DB_PASSWORD }} \
              db_name=mydb"
+
+      # 4. REPORTING (Requirement 6)
+      - name: Download Scan Report from Backend
+        if: always() # Runs even if the playbook fails
+        run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" ec2-user@${{ env.BACKEND_IP }} "cat /tmp/scan_report.txt" > vulnerability_report.txt || echo "Report not found"
+
+      - name: Upload Report to GitHub UI
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Techbleat-Vulnerability-Report
+          path: vulnerability_report.txt

@@ -1,9 +1,20 @@
 ---
-- name: Techbleat Capstone Deployment
+- name: OS Hardening (All Servers)
   hosts: all
   become: yes
   roles:
     - os_hardening
+
+- name: Backend Configuration (App & DB Client)
+  hosts: backend
+  become: yes
+  strategy: free  # Each task runs as fast as the server allows
+  roles:
     - db_servers
     - app_servers
+
+- name: Security Scanning
+  hosts: all
+  become: yes
+  roles:
     - vulnerability_scanning

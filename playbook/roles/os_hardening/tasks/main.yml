@@ -1,7 +1,8 @@
 ---
-- name: Update all security packages
+- name: Update only security packages
   dnf:
-    name: "*"
+    name: '*'
+    security: yes
     state: latest
     update_cache: yes
 

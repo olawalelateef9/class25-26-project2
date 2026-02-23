@@ -18,6 +18,10 @@
     requirements: /home/ec2-user/app/requirements.txt
     state: present
 
+- name: Kill existing FastAPI processes
+  shell: pkill python3 || true
+  ignore_errors: yes    
+
 - name: Start FastAPI in background with DB URL
   shell: |
     cd /home/ec2-user/app
@@ -33,5 +37,5 @@
     status_code: 200
   register: result
   until: result.status == 200
-  retries: 10
-  delay: 5
+  retries: 12
+  delay: 10
