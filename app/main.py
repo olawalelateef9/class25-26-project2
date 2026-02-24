@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeSerializer, BadSignature
 import os
-from typing import Optional
+from typing import Optional, Union
 
 APP_NAME = "fastapi_login"
 SECRET_KEY = os.environ.get("APP_SECRET_KEY", "change-me-in-prod")  # set via systemd env
@@ -43,7 +43,7 @@ def get_user(request: Request) -> Optional[str]:
 
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_get(request: Request, error: str | None = None):
+async def login_get(request: Request, error: Optional[str] = None):
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
 

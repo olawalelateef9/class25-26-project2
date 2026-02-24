@@ -55,13 +55,12 @@
 
 - name: Wait for FastAPI (Health Check)
   uri:
-    url: "http://localhost:8000/"
+    url: "http://localhost:8000/healthz" # Changed from / to /healthz
     status_code: 200
   register: result
   until: result.status == 200
   retries: 10
   delay: 5
-  ignore_errors: yes
 
 - name: Debug - Capture App Logs if Health Check Failed
   command: tail -n 20 /home/ec2-user/app/app.log
