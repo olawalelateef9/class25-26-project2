@@ -12,17 +12,27 @@
     group: ec2-user
     mode: '0755'
 
-- name: Transfer App, Requirements, and Wheels
+- name: Clean and Transfer App, Requirements, and Wheels
+  # This ensures no old, incompatible wheels are left over from previous failed runs
   copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     owner: ec2-user
     group: ec2-user
     mode: '0755'
+    force: yes
   with_items:
     - { src: "{{ playbook_dir }}/../app/", dest: "/home/ec2-user/app/" }
     - { src: "{{ playbook_dir }}/../requirements.txt", dest: "/home/ec2-user/app/requirements.txt" }
     - { src: "{{ playbook_dir }}/../dependencies/", dest: "/home/ec2-user/app/dependencies/" }
+
+- name: Install App dependencies Offline
+  # Using --no-deps ensures pip doesn't try to resolve things it shouldn't,
+  # since we already resolved them on the runner.
+  shell: |
+    python3 -m pip install --user --no-index --find-links=/home/ec2-user/app/dependencies/ -r /home/ec2-user/app/requirements.txt
+  become: true
+  become_user: ec2-user
 
 - name: Install App dependencies Offline
   # We use the python3 -m pip syntax to be 100% sure we hit the 3.9 engine

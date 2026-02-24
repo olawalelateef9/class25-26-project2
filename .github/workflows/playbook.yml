@@ -39,12 +39,10 @@ jobs:
       - name: Download Pip Wheels
         run: |
           mkdir -p dependencies
-          # We force Python 3.9 and the manylinux platform
-          # This ensures the files work on Amazon Linux 2023 / RHEL
+          # We explicitly tell pip to look for Python 3.9 compatibility
           pip download --dest ./dependencies \
             --platform manylinux2014_x86_64 \
             --python-version 3.9 \
-            --implementation cp \
             --only-binary=:all: \
             -r requirements.txt
 
