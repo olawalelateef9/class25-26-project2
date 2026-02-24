@@ -53,9 +53,13 @@ resource "aws_instance" "backend" {
   # Automated Database Connection String 
   user_data = <<-EOF
   #!/bin/bash
-  echo "DATABASE_URL=postgresql://postgres:Youngman9!@${aws_db_instance.project_db.endpoint}:5432/postgres" > /home/ubuntu/.env
-  sudo systemctl restart app
-  EOF
+  echo "DATABASE_URL=postgresql://postgres:${var.db_password}@${aws_db_instance.project_db.endpoint}:${var.db_name}" > /home/ec2-user/.env
+
+# Ensure permissions are correct for the app user
+chown ec2-user:ec2-user /home/ec2-user/.env
+
+sudo systemctl restart app || true
+EOF
 }
 
 # --- 3. DATABASE RESOURCES (Private Tier) ---
@@ -73,9 +77,9 @@ resource "aws_db_instance" "project_db" {
   allocated_storage    = 20
   
   # FIX 1: Add the database name so it's not empty
-  db_name              = "mydb" 
+  db_name              = var.db_name 
   
-  username             = "postgres"
+  username             = var.db_user
   
   # FIX 2: Remove quotes so it uses the variable value, not a string
   password             = var.db_password 

@@ -37,10 +37,10 @@
 
 - name: Force connection reset
   meta: reset_connection
-  meta: reset_connection    
+     
 
 - name: Wait for SSH to be available again
   wait_for_connection:
-    delay: 3
+    delay: 5
     timeout: 60
 

@@ -6,6 +6,22 @@
       - python3-pip
     state: present
 
+- name: Test Connectivity to RDS Instance
+  shell: |
+    export PGPASSWORD='{{ db_password }}'
+    psql -h {{ rds_endpoint }} -U {{ db_user }} -d {{ db_name }} -c "SELECT 1;"
+  register: db_check
+  retries: 5
+  delay: 10
+  until: db_check.rc == 0
+  changed_when: false
+
+- name: Confirm DB Connection Status
+  debug:
+    msg: "Database connection successful!"
+  when: db_check.rc == 0
+
+  
 - name: Install psycopg2-binary via pip
   pip:
     name: psycopg2-binary
