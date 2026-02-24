@@ -34,16 +34,6 @@
   become: true
   become_user: ec2-user
 
-- name: Install App dependencies Offline
-  # We use the python3 -m pip syntax to be 100% sure we hit the 3.9 engine
-  # We use -r requirements.txt so pip handles the logic, but --find-links for the files
-  shell: |
-    python3 -m pip install --user --no-index \
-      --find-links=/home/ec2-user/app/dependencies/ \
-      -r /home/ec2-user/app/requirements.txt
-  become: true
-  become_user: ec2-user
-
 - name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
