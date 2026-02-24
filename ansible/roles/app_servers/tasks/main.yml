@@ -13,9 +13,10 @@
     mode: '0755'
 
 - name: Transfer App code from Runner to Backend
-  # This avoids the "No Internet" issue in Private Subnets
+  # Using "{{ playbook_dir }}" ensures we start from the 'ansible/' folder
+  # then go up one level to find 'app/' at the root
   copy:
-    src: "../../app/"  # Points to the 'app' folder in your repo root
+    src: "{{ playbook_dir }}/../app/"
     dest: /home/ec2-user/app/
     owner: ec2-user
     group: ec2-user
