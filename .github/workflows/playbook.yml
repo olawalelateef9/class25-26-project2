@@ -55,7 +55,7 @@ jobs:
           # 3. Run the optimized playbook
           # We pass all DB variables to ensure Ansible builds the correct connection string
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook -i inventory.ini playbook/master.yml --extra-vars \
+          ansible-playbook -i inventory.ini ansible/master.yml --extra-vars \
             "rds_endpoint=${{ env.RDS_ENDPOINT }} \
              db_user=postgres \
              db_password=${{ secrets.DB_PASSWORD }} \
