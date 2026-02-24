@@ -12,51 +12,56 @@
     group: ec2-user
     mode: '0755'
 
-- name: Transfer App folder contents to Backend
-  # Copies the contents of the local app/ folder into the remote app/ folder
+- name: Transfer App, Requirements, and Wheels
   copy:
-    src: "{{ playbook_dir }}/../app/"
-    dest: /home/ec2-user/app/
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
     owner: ec2-user
     group: ec2-user
     mode: '0755'
+  with_items:
+    - { src: "{{ playbook_dir }}/../app/", dest: "/home/ec2-user/app/" }
+    - { src: "{{ playbook_dir }}/../requirements.txt", dest: "/home/ec2-user/app/requirements.txt" }
+    - { src: "{{ playbook_dir }}/../dependencies/", dest: "/home/ec2-user/app/dependencies/" }
 
-- name: Transfer requirements.txt to Backend
-  # Specifically picks up the requirements.txt from your repository root
-  copy:
-    src: "{{ playbook_dir }}/../requirements.txt"
-    dest: /home/ec2-user/app/requirements.txt
-    owner: ec2-user
-    group: ec2-user
-    mode: '0644'
-
-- name: Install App dependencies
-  pip:
-    requirements: /home/ec2-user/app/requirements.txt
-    executable: pip3
-    extra_args: "--user"
+- name: Install App dependencies Offline
+  # --no-index: Don't use the internet/PyPI
+  # --find-links: Use the uploaded wheels folder instead
+  shell: |
+    pip3 install --user --no-index --find-links=/home/ec2-user/app/dependencies/ -r /home/ec2-user/app/requirements.txt
   become: true
   become_user: ec2-user
-
-- name: Kill existing FastAPI processes
-  shell: pkill -f "uvicorn" || true
-  ignore_errors: yes    
 
 - name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
-    # Handle the rds_endpoint:port split and use the correct db_name variable
     export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint.split(':')[0] }}:5432/{{ db_name }}"
     nohup /usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
   async: 60
   poll: 0
   become_user: ec2-user
 
-- name: Wait for FastAPI to start (Health Check)
+- name: Wait for FastAPI (Health Check)
   uri:
     url: "http://localhost:8000/"
     status_code: 200
   register: result
   until: result.status == 200
-  retries: 15
+  retries: 10
   delay: 5
+  ignore_errors: yes
+
+- name: Debug - Capture App Logs if Health Check Failed
+  command: tail -n 20 /home/ec2-user/app/app.log
+  register: app_logs
+  when: result.status is not defined or result.status != 200
+
+- name: Display App Logs on Failure
+  debug:
+    var: app_logs.stdout_lines
+  when: result.status is not defined or result.status != 200
+
+- name: Final Validation
+  fail:
+    msg: "FastAPI failed to start. Review the logs displayed above."
+  when: result.status is not defined or result.status != 200
