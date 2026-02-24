@@ -26,9 +26,16 @@
   roles:
     - { role: app_servers, tags: ["app"] }
 
-# 4. Final Scans
+# 4. Final Scans - Targeted specifically to the Backend
 - name: Apply Vulnerability Scanning
-  hosts: all
+  hosts: backend  # <--- Changed from 'all' to 'backend'
   become: true
   roles:
     - { role: vulnerability_scanning, tags: ["vulnerability"] }
+
+  post_tasks:
+    - name: Fetch vulnerability report to GitHub Runner
+      fetch:
+        src: /tmp/scan_report.txt
+        dest: ./vulnerability_report.txt
+        flat: yes
