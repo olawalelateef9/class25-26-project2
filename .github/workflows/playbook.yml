@@ -64,11 +64,12 @@ jobs:
 
           # Run the playbook with extra vars
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook -i inventory.ini ansible/master.yml --extra-vars \
-            "rds_endpoint=${{ env.RDS_ENDPOINT }} \
-             db_user=postgres \
-             db_password=${{ secrets.DB_PASSWORD }} \
-             db_name=${{ env.DB_NAME }}"
+          ansible-playbook -i inventory.ini ansible/master.yml \
+            --extra-vars "rds_endpoint=${{ env.RDS_ENDPOINT }} \
+                          db_user=postgres \
+                          db_password=${{ secrets.DB_PASSWORD }} \
+                          db_name=${{ env.DB_NAME }}" \
+            --ssh-common-args='-o ProxyCommand="ssh -W %h:%p -q ec2-user@52.14.187.189 -i key.pem -o StrictHostKeyChecking=no"'
 
       # 5. REPORTING
       - name: Download Scan Report
