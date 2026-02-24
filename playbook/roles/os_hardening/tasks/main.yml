@@ -38,3 +38,8 @@
 - name: Reset connection to refresh SSH tunnel after firewall changes
   meta: reset_connection    
 
+- name: Wait for SSH to be available again
+  wait_for_connection:
+    delay: 5
+    timeout: 60
+
