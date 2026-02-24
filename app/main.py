@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeSerializer, BadSignature
 import os
+from typing import Optional
 
 APP_NAME = "fastapi_login"
 SECRET_KEY = os.environ.get("APP_SECRET_KEY", "change-me-in-prod")  # set via systemd env
@@ -30,7 +31,7 @@ def set_session(response: RedirectResponse, username: str) -> None:
     )
 
 
-def get_user(request: Request) -> str | None:
+def get_user(request: Request) -> Optional[str]:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None
