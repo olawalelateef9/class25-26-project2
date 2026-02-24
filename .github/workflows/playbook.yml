@@ -39,11 +39,12 @@ jobs:
       - name: Download Pip Wheels
         run: |
           mkdir -p dependencies
-          # We add --extra-index-url and ensure we get all dependencies 
-          # for the 'standard' uvicorn install
+          # We force Python 3.9 and the manylinux platform
+          # This ensures the files work on Amazon Linux 2023 / RHEL
           pip download --dest ./dependencies \
             --platform manylinux2014_x86_64 \
             --python-version 3.9 \
+            --implementation cp \
             --only-binary=:all: \
             -r requirements.txt
 

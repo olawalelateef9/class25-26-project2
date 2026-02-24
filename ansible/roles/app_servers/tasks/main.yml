@@ -25,9 +25,12 @@
     - { src: "{{ playbook_dir }}/../dependencies/", dest: "/home/ec2-user/app/dependencies/" }
 
 - name: Install App dependencies Offline
-  # This targets the .whl files directly to resolve the 'watchfiles' error
+  # We use the python3 -m pip syntax to be 100% sure we hit the 3.9 engine
+  # We use -r requirements.txt so pip handles the logic, but --find-links for the files
   shell: |
-    pip3 install --user --no-index --find-links=/home/ec2-user/app/dependencies/ /home/ec2-user/app/dependencies/*.whl
+    python3 -m pip install --user --no-index \
+      --find-links=/home/ec2-user/app/dependencies/ \
+      -r /home/ec2-user/app/requirements.txt
   become: true
   become_user: ec2-user
 
