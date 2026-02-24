@@ -5,12 +5,12 @@
       - postgresql15
       - python3-pip
     state: present
-
-# 2. The "Fast Fail" Connectivity Check
+# The 'Fast Fail' connectivity test
 - name: Test Connectivity to RDS Instance
   shell: |
+    # We split by ':' and take the first part to get just the hostname
     export PGPASSWORD='{{ db_password }}'
-    psql -h {{ rds_endpoint }} -U {{ db_user }} -d {{ db_name }} -c "SELECT 1;"
+    psql -h {{ rds_endpoint.split(':')[0] }} -p 5432 -U {{ db_user }} -d {{ db_name }} -c "SELECT 1;"
   register: db_check
   retries: 5
   delay: 10
@@ -21,9 +21,3 @@
   debug:
     msg: "Database connection successful!"
   when: db_check.rc == 0
-
-  
-- name: Install psycopg2-binary via pip
-  pip:
-    name: psycopg2-binary
-    state: present

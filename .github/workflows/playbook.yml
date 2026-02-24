@@ -8,13 +8,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. SECURITY SCANS (Local Runner Side)
+      # 1. SECURITY SCANS
       - name: Run Bandit (Local SAST)
         run: |
           pip install bandit 
           bandit -r ./app || true 
 
-      # 2. TERRAFORM (Infrastructure Creation)
+      # 2. TERRAFORM (Infrastructure)
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -25,10 +25,8 @@ jobs:
         run: |
           cd terraform
           terraform init
-          # Pass the DB password secret to Terraform
           terraform apply -auto-approve -var="db_password=${{ secrets.DB_PASSWORD }}"
           
-          # Capture fresh IPs, RDS Endpoint, and DB Name from Terraform outputs
           echo "BASTION_IP=$(terraform output -raw bastion_public_ip)" >> $GITHUB_ENV
           echo "BACKEND_IP=$(terraform output -raw backend_private_ip)" >> $GITHUB_ENV
           echo "RDS_ENDPOINT=$(terraform output -raw rds_endpoint)" >> $GITHUB_ENV
@@ -37,23 +35,18 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      # 3. ANSIBLE (Configuration & Deployment)
+      # 3. ANSIBLE (Deployment)
       - name: Run Ansible Playbook
         run: |
-          # 1. Setup the SSH key
           printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
           chmod 400 key.pem
 
-          # 2. Create the dynamic inventory
           echo "[web]" > inventory.ini
           echo "${{ env.BASTION_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
           
           echo "[backend]" >> inventory.ini
-          # The ProxyCommand allows Ansible to "jump" through the Bastion to reach the Private Backend
           echo "${{ env.BACKEND_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}\"'" >> inventory.ini
 
-          # 3. Run the optimized playbook
-          # We pass all DB variables to ensure Ansible builds the correct connection string
           export ANSIBLE_HOST_KEY_CHECKING=False
           ansible-playbook -i inventory.ini ansible/master.yml --extra-vars \
             "rds_endpoint=${{ env.RDS_ENDPOINT }} \
@@ -61,14 +54,13 @@ jobs:
              db_password=${{ secrets.DB_PASSWORD }} \
              db_name=${{ env.DB_NAME }}"
 
-      # 4. REPORTING (Requirement 6)
-      - name: Download Scan Report from Backend
+      # 4. REPORTING
+      - name: Download Scan Report
         if: always() 
         run: |
-          # Jumps through Bastion to grab the file created by the vulnerability_scanning role
           ssh -i key.pem -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" ec2-user@${{ env.BACKEND_IP }} "cat /tmp/scan_report.txt" > vulnerability_report.txt || echo "Report not found"
 
-      - name: Upload Report to GitHub UI
+      - name: Upload Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -76,16 +68,21 @@ jobs:
           path: vulnerability_report.txt
 
       # 5. POST-DEPLOYMENT SMOKE TEST
-      - name: Smoke Test - Check if App is Live
+      - name: Smoke Test
         run: |
           echo "Checking app health on http://${{ env.BACKEND_IP }}:8000/ via Bastion..."
-          # This runs a curl command from the Bastion to the Backend
           ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }} \
             "curl -s -o /dev/null -w '%{http_code}' http://${{ env.BACKEND_IP }}:8000/" > status_code.txt
           
           if [ "$(cat status_code.txt)" == "200" ]; then
-            echo "SUCCESS: App is reachable and healthy!"
+            echo "SUCCESS: App is healthy!"
           else
             echo "FAILURE: App returned status $(cat status_code.txt)"
             exit 1
-          fi    
+          fi
+
+      # 6. DEBUG LOGS (Runs only if Smoke Test fails)
+      - name: Capture Backend Logs on Failure
+        if: failure()
+        run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" ec2-user@${{ env.BACKEND_IP }} "tail -n 50 /home/ec2-user/app/app.log" || echo "Log not found"
