@@ -39,8 +39,13 @@ jobs:
       - name: Download Pip Wheels
         run: |
           mkdir -p dependencies
-          # We download the .whl files here because the runner has internet
-          pip download -r requirements.txt -d ./dependencies
+          # We add --extra-index-url and ensure we get all dependencies 
+          # for the 'standard' uvicorn install
+          pip download --dest ./dependencies \
+            --platform manylinux2014_x86_64 \
+            --python-version 3.9 \
+            --only-binary=:all: \
+            -r requirements.txt
 
       # 4. ANSIBLE (Configuration & Deployment)
       - name: Run Ansible Playbook

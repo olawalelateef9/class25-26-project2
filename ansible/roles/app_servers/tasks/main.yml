@@ -25,10 +25,9 @@
     - { src: "{{ playbook_dir }}/../dependencies/", dest: "/home/ec2-user/app/dependencies/" }
 
 - name: Install App dependencies Offline
-  # --no-index: Don't use the internet/PyPI
-  # --find-links: Use the uploaded wheels folder instead
+  # This targets the .whl files directly to resolve the 'watchfiles' error
   shell: |
-    pip3 install --user --no-index --find-links=/home/ec2-user/app/dependencies/ -r /home/ec2-user/app/requirements.txt
+    pip3 install --user --no-index --find-links=/home/ec2-user/app/dependencies/ /home/ec2-user/app/dependencies/*.whl
   become: true
   become_user: ec2-user
 
