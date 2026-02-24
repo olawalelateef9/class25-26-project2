@@ -12,15 +12,23 @@
     group: ec2-user
     mode: '0755'
 
-- name: Transfer App code from Runner to Backend
-  # Using "{{ playbook_dir }}" ensures we start from the 'ansible/' folder
-  # then go up one level to find 'app/' at the root
+- name: Transfer App folder contents to Backend
+  # Copies the contents of the local app/ folder into the remote app/ folder
   copy:
     src: "{{ playbook_dir }}/../app/"
     dest: /home/ec2-user/app/
     owner: ec2-user
     group: ec2-user
     mode: '0755'
+
+- name: Transfer requirements.txt to Backend
+  # Specifically picks up the requirements.txt from your repository root
+  copy:
+    src: "{{ playbook_dir }}/../requirements.txt"
+    dest: /home/ec2-user/app/requirements.txt
+    owner: ec2-user
+    group: ec2-user
+    mode: '0644'
 
 - name: Install App dependencies
   pip:
@@ -37,7 +45,7 @@
 - name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
-    # Using split to handle the endpoint:port formatting correctly
+    # Handle the rds_endpoint:port split and use the correct db_name variable
     export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint.split(':')[0] }}:5432/{{ db_name }}"
     nohup /usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
   async: 60
