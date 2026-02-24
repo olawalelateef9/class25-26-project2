@@ -6,6 +6,7 @@
       - python3-pip
     state: present
 
+# 2. The "Fast Fail" Connectivity Check
 - name: Test Connectivity to RDS Instance
   shell: |
     export PGPASSWORD='{{ db_password }}'
