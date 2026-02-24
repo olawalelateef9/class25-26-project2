@@ -35,11 +35,12 @@
     - '22'
     - '8000'
 
-- name: Reset connection to refresh SSH tunnel after firewall changes
+- name: Force connection reset
+  meta: reset_connection
   meta: reset_connection    
 
 - name: Wait for SSH to be available again
   wait_for_connection:
-    delay: 5
+    delay: 3
     timeout: 60
 

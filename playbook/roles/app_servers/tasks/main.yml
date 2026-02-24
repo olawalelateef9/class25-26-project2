@@ -6,30 +6,42 @@
       - python3-pip
     state: present
 
+- name: Create app directory with correct permissions
+  file:
+    path: /home/ec2-user/app
+    state: directory
+    owner: ec2-user
+    group: ec2-user
+    mode: '0755'
+
 - name: Clone the FastAPI Repository
   git:
     repo: 'https://github.com/olawalelateef9/class25-26-project2.git'
     dest: /home/ec2-user/app
     version: main
     force: yes
+  become_user: ec2-user
 
 - name: Install App dependencies
   pip:
     requirements: /home/ec2-user/app/requirements.txt
-    state: present
+    executable: pip3 # Ensures Python 3 is used
+    extra_args: "--user" # Installs for ec2-user to avoid root conflicts
+  become: true
+  become_user: ec2-user
 
 - name: Kill existing FastAPI processes
-  shell: pkill python3 || true
+  shell: pkill -f "uvicorn" || true
   ignore_errors: yes    
 
 - name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
-    # Using 'mydb' to match the db_name we just added to Terraform
     export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint }}:5432/mydb"
-    nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+    nohup /usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
   async: 60
   poll: 0
+  become_user: ec2-user
 
 - name: Wait for FastAPI to start (Health Check)
   uri:
@@ -37,5 +49,5 @@
     status_code: 200
   register: result
   until: result.status == 200
-  retries: 12
-  delay: 10
+  retries: 10
+  delay: 5

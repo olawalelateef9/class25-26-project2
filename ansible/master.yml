@@ -1,25 +1,34 @@
 ---
-- name: Deploy Application Tier
-  hosts: appserver
+# 1. First, harden the Bastion (web) so the "bridge" is secure
+- name: Apply Hardening to Bastion
+  hosts: web
   become: true
   roles:
-    - { role: app_servers, tags: ["app"] }
+    - role: os_hardening
 
+# 2. Then, harden the Backend
+- name: Apply Hardening to Backend
+  hosts: backend
+  become: true
+  roles:
+    - role: os_hardening
 
-- name: Deploy Database Tier
-  hosts: db_servers
+# 3. Proceed with configurations
+- name: Deploy Database tier
+  hosts: backend
   become: true
   roles:
     - { role: db_servers, tags: ["db"] }
 
-- name: Apply Hardening
-  hosts: all
+- name: Deploy Application Tier
+  hosts: backend
   become: true
   roles:
-    - { role: os_hardening, tags: ["hardening"] }
+    - { role: app_servers, tags: ["app"] }
 
-- name: Apply Vunerability_scanning
+# 4. Final Scans
+- name: Apply Vulnerability Scanning
   hosts: all
   become: true
   roles:
-    - { role: vulnerability_scanning, tags: ["vulnerability"] }    
+    - { role: vulnerability_scanning, tags: ["vulnerability"] }
