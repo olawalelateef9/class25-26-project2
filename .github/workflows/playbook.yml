@@ -39,11 +39,12 @@ jobs:
       - name: Download Pip Wheels
         run: |
           mkdir -p dependencies
-          # We explicitly tell pip to look for Python 3.9 compatibility
+          # We remove --only-binary to allow source dists if wheels are missing
+          # but keep the 3.9 target
           pip download --dest ./dependencies \
             --platform manylinux2014_x86_64 \
             --python-version 3.9 \
-            --only-binary=:all: \
+            --implementation cp \
             -r requirements.txt
 
       # 4. ANSIBLE (Configuration & Deployment)

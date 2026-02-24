@@ -27,10 +27,10 @@
     - { src: "{{ playbook_dir }}/../dependencies/", dest: "/home/ec2-user/app/dependencies/" }
 
 - name: Install App dependencies Offline
-  # Using --no-deps ensures pip doesn't try to resolve things it shouldn't,
-  # since we already resolved them on the runner.
   shell: |
-    python3 -m pip install --user --no-index --find-links=/home/ec2-user/app/dependencies/ -r /home/ec2-user/app/requirements.txt
+    python3 -m pip install --user --no-index \
+      --find-links=/home/ec2-user/app/dependencies/ \
+      -r /home/ec2-user/app/requirements.txt
   become: true
   become_user: ec2-user
 
