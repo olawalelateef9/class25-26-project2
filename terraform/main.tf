@@ -40,12 +40,12 @@ resource "aws_instance" "bastion" {
 # BACKEND INSTANCE (Private Subnet)
 # Runs the FastAPI application portal [cite: 25, 28]
 resource "aws_instance" "backend" {
-  count                  = 1
-  ami                    = var.backend_ami
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.private_subnet_1.id 
-  vpc_security_group_ids = [aws_security_group.backend_sg.id]
-  key_name               = var.key_name
+  count                       = 1
+  ami                         = var.backend_ami
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.private_subnet_1.id
+  vpc_security_group_ids      = [aws_security_group.backend_sg.id]
+  key_name                    = var.key_name
   associate_public_ip_address = false
 
   tags = { Name = "backend-instance-${count.index + 1}" }
@@ -67,27 +67,27 @@ EOF
 resource "aws_db_subnet_group" "project_db_subnet_group" {
   name       = "project-db-subnet-group"
   subnet_ids = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
-  tags = { Name = "Project DB Subnet Group" }
+  tags       = { Name = "Project DB Subnet Group" }
 }
 
 resource "aws_db_instance" "project_db" {
-  identifier           = "project-database"
-  engine               = "postgres"
-  instance_class       = "db.t4g.micro"
-  allocated_storage    = 20
-  
+  identifier        = "project-database"
+  engine            = "postgres"
+  instance_class    = "db.t4g.micro"
+  allocated_storage = 20
+
   # FIX 1: Add the database name so it's not empty
-  db_name              = var.db_name 
-  
-  username             = var.db_user
-  
+  db_name = var.db_name
+
+  username = var.db_user
+
   # FIX 2: Remove quotes so it uses the variable value, not a string
-  password             = var.db_password 
-  
-  db_subnet_group_name = aws_db_subnet_group.project_db_subnet_group.name
+  password = var.db_password
+
+  db_subnet_group_name   = aws_db_subnet_group.project_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
-  skip_final_snapshot  = true
-  publicly_accessible  = false
+  skip_final_snapshot    = true
+  publicly_accessible    = false
 }
 
 # --- 4. SECURITY GROUPS (Firewalls) ---
@@ -121,7 +121,7 @@ resource "aws_security_group" "backend_sg" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.bastion_sg.id] 
+    security_groups = [aws_security_group.bastion_sg.id]
   }
 
   ingress {
@@ -149,7 +149,7 @@ resource "aws_security_group" "db_sg" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.backend_sg.id] 
+    security_groups = [aws_security_group.backend_sg.id]
   }
 
   egress {
