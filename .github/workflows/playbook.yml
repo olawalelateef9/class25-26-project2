@@ -56,6 +56,13 @@ jobs:
           chmod 400 key.pem
 
 
+      - name: Check App Health Via Bastion
+        run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no \
+          -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" \
+          ec2-user@${{ env.BACKEND_IP }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthz" | grep 200
+
+
       # Create the dynamic inventory and run the playbook with extra vars
       - name: Create the dynamic inventory and Run Playbook
         run: |
