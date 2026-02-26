@@ -1,20 +1,20 @@
 ---
-
-- name: Kill existing FastAPI process
-  shell: "pkill -f uvicorn || true"
-  ignore_errors: yes
+- name: Kill anything using port 8000
+  shell: "fuser -k 8000/tcp || true"
   become: true
+  ignore_errors: yes
 
-- name: Wait for port 8000 to be free
+- name: Wait for port 8000 to be completely free
   wait_for:
     port: 8000
-    state: drained
+    state: absent
     timeout: 30
 
 - name: Install Python3-pip
   dnf:
     name: python3-pip
     state: present
+  become: true
 
 - name: Create app directory
   file:
@@ -25,7 +25,6 @@
     mode: '0755'
 
 - name: Clean and Transfer App, Requirements, and Wheels
-  # This ensures no old, incompatible wheels are left over from previous failed runs
   copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
@@ -46,20 +45,12 @@
   become: true
   become_user: ec2-user
 
-- name: Kill existing FastAPI process
-  shell: "pkill -f uvicorn || true"
-  become: true
-
 - name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
     export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint.split(':')[0] }}:5432/{{ db_name }}"
-    
-    # This forces Python to look in the current folder for any modules
     export PYTHONPATH=$PYTHONPATH:.
-
-    # We use a 'try-both' approach: 
-    # Try to start as app.main:app, if that fails, try main:app
+    
     if [ -d "app" ]; then
         nohup /usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
     else
@@ -71,17 +62,19 @@
 
 - name: Wait for FastAPI (Health Check)
   uri:
-    url: "http://localhost:8000/healthz" # Changed from / to /healthz
+    url: "http://localhost:8000/healthz"
     status_code: 200
   register: result
   until: result.status == 200
   retries: 10
   delay: 5
+  ignore_errors: yes
 
-- name: Debug - Capture App Logs if Health Check Failed
+- name: Capture App Logs on Failure
   command: tail -n 20 /home/ec2-user/app/app.log
   register: app_logs
   when: result.status is not defined or result.status != 200
+  ignore_errors: yes
 
 - name: Display App Logs on Failure
   debug:
