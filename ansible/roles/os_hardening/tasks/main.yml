@@ -6,6 +6,31 @@
     state: latest
     update_cache: yes
 
+- name: Ensure firewalld is installed
+  dnf:
+    name: firewalld
+    state: present
+
+- name: Start and enable Firewalld
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Ensure SSH is allowed in Firewalld (Immediate and Permanent)
+  firewalld:
+    service: ssh
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Allow App Port (8000)
+  firewalld:
+    port: 8000/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+
 - name: Disable SSH password authentication
   lineinfile:
     path: /etc/ssh/sshd_config
@@ -14,35 +39,10 @@
     state: present
   notify: restart sshd
 
-- name: Ensure SSH is allowed in Firewalld (BEFORE starting service)
-  firewalld:
-    service: ssh
-    permanent: yes
-    state: enabled
-    immediate: yes  # This is the key—it applies it to the running config
-
-- name: Start and enable Firewalld
-  service:
-    name: firewalld
-    state: started
-    enabled: yes
-
-- name: Allow SSH and App Port (8000)
-  firewalld:
-    port: "{{ item }}/tcp"
-    permanent: yes
-    state: enabled
-    immediate: yes
-  loop:
-    - '22'
-    - '8000'
-
-- name: Force connection reset
+- name: Force connection reset to apply settings
   meta: reset_connection
-     
 
 - name: Wait for SSH to be available again
   wait_for_connection:
     delay: 5
     timeout: 60
-
