@@ -59,7 +59,6 @@ jobs:
       # Create the dynamic inventory and run the playbook with extra vars
       - name: Create the dynamic inventory and Run Playbook
         run: |
-          # 1. Generate the inventory
           echo "[web]" > inventory.ini
           echo "bastion ansible_host=${{ env.BASTION_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
           
@@ -69,9 +68,9 @@ jobs:
           
           echo "" >> inventory.ini
           echo "[all:vars]" >> inventory.ini
-          echo "ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}\"'" >> inventory.ini
+          # Added ServerAliveInterval and ControlMaster for stability
+          echo "ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no -o ServerAliveInterval=30 ec2-user@${{ env.BASTION_IP }}\" -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPersist=60s'" >> inventory.ini
 
-          # 2. Execute the playbook with extra vars
           export ANSIBLE_HOST_KEY_CHECKING=False
           ansible-playbook -i inventory.ini ansible/master.yml \
             --extra-vars "rds_endpoint=${{ env.RDS_ENDPOINT }} \
