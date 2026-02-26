@@ -14,10 +14,12 @@
     state: present
   notify: restart sshd
 
-- name: Install and start Firewalld
-  dnf:
-    name: firewalld
-    state: present
+- name: Ensure SSH is allowed in Firewalld (BEFORE starting service)
+  firewalld:
+    service: ssh
+    permanent: yes
+    state: enabled
+    immediate: yes  # This is the key—it applies it to the running config
 
 - name: Start and enable Firewalld
   service:
