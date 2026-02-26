@@ -100,14 +100,19 @@ jobs:
       # 6. POST-DEPLOYMENT SMOKE TEST
       - name: Smoke Test
         run: |
-          echo "Checking app health on http://${{ env.BACKEND_IP }}:8000/ via Bastion..."
-          ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }} \
-            "curl -s -o /dev/null -w '%{http_code}' http://${{ env.BACKEND_IP }}:8000/" > status_code.txt
+          echo "Checking app health on http://${{ env.BACKEND_IP }}:8000/healthz via Bastion..."
           
-          if [ "$(cat status_code.txt)" == "200" ]; then
+          # We use the Bastion to curl the Backend's internal health endpoint
+          ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }} \
+            "curl -s -o /dev/null -w '%{http_code}' http://${{ env.BACKEND_IP }}:8000/healthz" > status_code.txt
+          
+          STATUS=$(cat status_code.txt)
+          echo "App returned status: $STATUS"
+          
+          if [ "$STATUS" == "200" ]; then
             echo "SUCCESS: App is healthy!"
           else
-            echo "FAILURE: App returned status $(cat status_code.txt)"
+            echo "FAILURE: App returned status $STATUS"
             exit 1
           fi
 
