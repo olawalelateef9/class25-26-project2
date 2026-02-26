@@ -28,7 +28,7 @@ provider "aws" {
 # Provides secure administrative access (SSH) to private instances [cite: 26, 43]
 resource "aws_instance" "bastion" {
   ami                         = var.web_ami
-  instance_type               = "t2.micro"
+  instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public_subnet.id
   vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
   key_name                    = var.key_name
