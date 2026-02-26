@@ -55,9 +55,11 @@ jobs:
           printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
           chmod 400 key.pem
 
-      # 5. Create Dynamic Inventory with extra vars for Ansible
-      - name: Create the dynamic inventory
+
+      # Create the dynamic inventory and run the playbook with extra vars
+      - name: Create the dynamic inventory and Run Playbook
         run: |
+          # 1. Generate the inventory
           echo "[web]" > inventory.ini
           echo "bastion ansible_host=${{ env.BASTION_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
           
@@ -68,7 +70,15 @@ jobs:
           echo "" >> inventory.ini
           echo "[all:vars]" >> inventory.ini
           echo "ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}\"'" >> inventory.ini
-      # 6. REPORTING
+
+          # 2. Execute the playbook with extra vars
+          export ANSIBLE_HOST_KEY_CHECKING=False
+          ansible-playbook -i inventory.ini ansible/master.yml \
+            --extra-vars "rds_endpoint=${{ env.RDS_ENDPOINT }} \
+                          db_user=postgres \
+                          db_password=${{ secrets.DB_PASSWORD }} \
+                          db_name=${{ env.DB_NAME }}"
+      # 5. REPORTING
       - name: Download Scan Report
         if: always() 
         run: |
@@ -81,7 +91,7 @@ jobs:
           name: Techbleat-Vulnerability-Report
           path: vulnerability_report.txt
 
-      # 7. POST-DEPLOYMENT SMOKE TEST
+      # 6. POST-DEPLOYMENT SMOKE TEST
       - name: Smoke Test
         run: |
           echo "Checking app health on http://${{ env.BACKEND_IP }}:8000/ via Bastion..."
@@ -95,7 +105,7 @@ jobs:
             exit 1
           fi
 
-      # 8. DEBUG LOGS (Runs only if Smoke Test fails)
+      # 7. DEBUG LOGS (Runs only if Smoke Test fails)
       - name: Capture Backend Logs on Failure
         if: failure()
         run: |
