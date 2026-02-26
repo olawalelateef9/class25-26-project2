@@ -34,6 +34,10 @@
   become: true
   become_user: ec2-user
 
+- name: Kill existing FastAPI process
+  shell: "pkill -f uvicorn || true"
+  become: true
+
 - name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
