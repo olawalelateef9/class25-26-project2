@@ -5,12 +5,17 @@
       - postgresql15
       - python3-pip
     state: present
+  become: true
+
 # The 'Fast Fail' connectivity test
 - name: Test Connectivity to RDS Instance
   shell: |
-    # We split by ':' and take the first part to get just the hostname
+    # Using the split filter to handle endpoints that include the port
     export PGPASSWORD='{{ db_password }}'
-    psql -h {{ rds_endpoint.split(':')[0] }} -p 5432 -U {{ db_user }} -d {{ db_name }} -c "SELECT 1;"
+    psql -h {{ rds_endpoint.split(':')[0] }} -p 5432 -U {{ db_user_var }} -d {{ db_name }} -c "SELECT 1;"
+  vars:
+    # This ensures the variable is resolved correctly for this specific task
+    db_user_var: "{{ db_user | default('postgres') }}"
   register: db_check
   retries: 5
   delay: 10
@@ -19,5 +24,5 @@
 
 - name: Confirm DB Connection Status
   debug:
-    msg: "Database connection successful!"
+    msg: "Database connection successful to {{ rds_endpoint }}!"
   when: db_check.rc == 0
