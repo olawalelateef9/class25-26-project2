@@ -131,6 +131,20 @@
     group: grafana
   become: true
 
+
+- name: Provision Prometheus Data Source in Grafana
+  copy:
+    dest: /etc/grafana/provisioning/datasources/prometheus.yaml
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://localhost:9090
+          isDefault: true
+  become: true
+  notify: restart grafana
+
 - name: Configure Dashboard Provider YAML
   copy:
     dest: /etc/grafana/provisioning/dashboards/dashboard_provider.yaml
