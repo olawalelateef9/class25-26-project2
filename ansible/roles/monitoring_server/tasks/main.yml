@@ -120,9 +120,8 @@
   with_items:
     - 9090/tcp
     - 3000/tcp
+  become: true
 
----
-# ... existing Prometheus/Grafana tasks ...
 
 - name: Create Grafana Dashboard Provider Directory
   file:
