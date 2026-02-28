@@ -47,6 +47,7 @@
 
  # Project Structure
 .
+.
 ├── .github/
 │   └── workflows/
 │       └── main.yml            # The CI/CD Pipeline (Terraform + Ansible)
