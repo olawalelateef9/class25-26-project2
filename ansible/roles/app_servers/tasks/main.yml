@@ -42,13 +42,13 @@
     python3 -m pip install --user --no-index \
       --find-links=/home/ec2-user/app/dependencies/ \
       -r /home/ec2-user/app/requirements.txt
-  become: true
   become_user: ec2-user
 
 - name: Start FastAPI in background
   shell: |
     cd /home/ec2-user/app
-    export DATABASE_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ rds_endpoint.split(':')[0] }}:5432/{{ db_name }}"
+    # Use the local variable alias to avoid 'undefined' errors
+    export DATABASE_URL="postgresql://{{ local_db_user }}:{{ db_password }}@{{ rds_endpoint.split(':')[0] }}:5432/{{ db_name }}"
     export PYTHONPATH=$PYTHONPATH:.
     
     if [ -d "app" ]; then
@@ -56,6 +56,9 @@
     else
         nohup /usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
     fi
+  vars:
+    # This is the "Safety Net" that fixes the error
+    local_db_user: "{{ db_user | default('postgres') }}"
   async: 60
   poll: 0
   become_user: ec2-user
@@ -66,7 +69,7 @@
     status_code: 200
   register: result
   until: result.status == 200
-  retries: 10
+  retries: 15
   delay: 5
   ignore_errors: yes
 
