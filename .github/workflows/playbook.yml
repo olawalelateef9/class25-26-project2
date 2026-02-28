@@ -53,27 +53,24 @@ jobs:
           printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
           chmod 400 key.pem
 
-      - name: Create Inventory and Run Playbook
+      - name: Create the dynamic inventory and Run Playbook
         run: |
           echo "[web]" > inventory.ini
           echo "bastion ansible_host=${{ env.BASTION_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
           
           echo "" >> inventory.ini
           echo "[backend]" >> inventory.ini
+          # We use the Internal IP for the backend
           echo "app_server ansible_host=${{ env.BACKEND_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
           
           echo "" >> inventory.ini
           echo "[all:vars]" >> inventory.ini
-          echo "ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no\" ec2-user@${{ env.BASTION_IP }}'" >> inventory.ini
+          # FIX: This line uses double quotes for the variable and single quotes for the internal SSH command
+          echo "ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}\"'" >> inventory.ini
 
           export ANSIBLE_HOST_KEY_CHECKING=False
           ansible-playbook -i inventory.ini ansible/master.yml \
-            --extra-vars "rds_endpoint=${{ env.RDS_ENDPOINT }} \
-                          db_user=postgres \
-                          db_password=${{ secrets.DB_PASSWORD }} \
-                          db_name=${{ env.DB_NAME }} \
-                          backend_ip=${{ env.BACKEND_IP }} \
-                          bastion_ip=${{ env.BASTION_IP }}"
+            --extra-vars "rds_endpoint=${{ env.RDS_ENDPOINT }} db_password=${{ secrets.DB_PASSWORD }} db_name=${{ env.DB_NAME }} backend_ip=${{ env.BACKEND_IP }} bastion_ip=${{ env.BASTION_IP }}"
 
       # 5. POST-DEPLOYMENT SMOKE TEST
       - name: Smoke Test
