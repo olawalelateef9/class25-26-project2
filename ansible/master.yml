@@ -39,3 +39,25 @@
         src: /tmp/scan_report.txt
         dest: ./vulnerability_report.txt
         flat: yes
+
+# 5. MONITORING SETUP
+# Part A: Install the data collector on the Backend
+- name: Setup Hardware Monitoring Agent on Backend
+  hosts: backend
+  become: true
+  roles:
+    - { role: node_exporter, tags: ["monitoring", "exporter"] }
+
+# Part B: Install Prometheus & Grafana on the Bastion
+- name: Setup Monitoring Dashboards on Bastion
+  hosts: web
+  become: true
+  roles:
+    - { role: monitoring_server, tags: ["monitoring", "grafana"] }       
+
+# 6. Finally, set up the Nginx reverse proxy on the Bastion to allow public access to the app
+- name: Setup Public Access via Nginx
+  hosts: web
+  become: true
+  roles:
+    - { role: nginx_proxy, tags: ["nginx"] }     

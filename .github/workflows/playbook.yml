@@ -83,7 +83,9 @@ jobs:
             --extra-vars "rds_endpoint=${{ env.RDS_ENDPOINT }} \
                           db_user=postgres \
                           db_password=${{ secrets.DB_PASSWORD }} \
-                          db_name=${{ env.DB_NAME }}"
+                          db_name=${{ env.DB_NAME }} \
+                          backend_ip=${{ env.BACKEND_IP }} \
+                          bastion_ip=${{ env.BASTION_IP }}"
       # 5. REPORTING
       - name: Download Scan Report
         if: always() 

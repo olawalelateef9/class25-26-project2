@@ -1,0 +1,166 @@
+---
+- name: Install monitoring dependencies
+  dnf:
+    name: [wget, tar]
+    state: present
+    update_cache: yes
+
+- name: Create Prometheus system group
+  group:
+    name: prometheus
+    state: present
+    system: yes
+
+- name: Create Prometheus system user
+  user:
+    name: prometheus
+    group: prometheus
+    shell: /sbin/nologin
+    system: yes
+    create_home: no
+
+- name: Create Prometheus directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  with_items:
+    - /etc/prometheus
+    - /var/lib/prometheus
+
+- name: Download Prometheus binary
+  get_url:
+    url: https://github.com/prometheus/prometheus/releases/download/v2.50.1/prometheus-2.50.1.linux-amd64.tar.gz
+    dest: /tmp/prometheus.tar.gz
+
+- name: Extract Prometheus archive
+  unarchive:
+    src: /tmp/prometheus.tar.gz
+    dest: /tmp
+    remote_src: yes
+
+- name: Copy Prometheus binaries to /usr/local/bin
+  copy:
+    src: "/tmp/prometheus-2.50.1.linux-amd64/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: '0755'
+    owner: prometheus
+    group: prometheus
+    remote_src: yes
+  with_items:
+    - prometheus
+    - promtool
+
+- name: Configure Prometheus scrape targets
+  copy:
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    content: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:9090']
+        - job_name: 'app_server_hardware'
+          static_configs:
+            - targets: ['{{ backend_ip }}:9100']
+        - job_name: 'fastapi_app_health'
+          static_configs:
+            - targets: ['{{ backend_ip }}:8000']
+
+- name: Create Prometheus systemd service
+  copy:
+    dest: /etc/systemd/system/prometheus.service
+    content: |
+      [Unit]
+      Description=Prometheus
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      User=prometheus
+      Group=prometheus
+      Type=simple
+      ExecStart=/usr/local/bin/prometheus \
+        --config.file=/etc/prometheus/prometheus.yml \
+        --storage.tsdb.path=/var/lib/prometheus/
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Start and enable Prometheus
+  systemd:
+    name: prometheus
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Install Grafana via RPM
+  dnf:
+    name: https://dl.grafana.com/oss/release/grafana-10.4.1-1.x86_64.rpm
+    state: present
+    disable_gpg_check: yes
+
+- name: Start and enable Grafana
+  systemd:
+    name: grafana-server
+    state: started
+    enabled: yes
+
+- name: Allow Monitoring Ports in Firewalld
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  with_items:
+    - 9090/tcp
+    - 3000/tcp
+
+---
+# ... existing Prometheus/Grafana tasks ...
+
+- name: Create Grafana Dashboard Provider Directory
+  file:
+    path: /etc/grafana/provisioning/dashboards
+    state: directory
+    owner: root
+    group: grafana
+  become: true
+
+- name: Configure Dashboard Provider YAML
+  copy:
+    dest: /etc/grafana/provisioning/dashboards/dashboard_provider.yaml
+    content: |
+      apiVersion: 1
+      providers:
+        - name: 'Standard Dashboards'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards
+  become: true
+
+- name: Create local dashboard storage directory
+  file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+  become: true
+
+- name: Download Node Exporter Dashboard (ID 1860)
+  get_url:
+    url: https://grafana.com/api/dashboards/1860/revisions/37/download
+    dest: /var/lib/grafana/dashboards/node_exporter.json
+    owner: grafana
+    group: grafana
+  become: true
+  notify: restart grafana    
