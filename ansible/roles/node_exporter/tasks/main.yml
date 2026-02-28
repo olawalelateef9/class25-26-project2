@@ -1,4 +1,5 @@
 ---
+# 1. PREPARE SYSTEM USER
 - name: Create Node Exporter system user
   user:
     name: node_exporter
@@ -7,27 +8,32 @@
     create_home: no
   become: true
 
-- name: Download Node Exporter binary
-  get_url:
-    url: https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz
-    dest: /tmp/node_exporter.tar.gz
+# 2. TRANSFER BINARY (Offline Method)
+- name: Transfer Node Exporter binary from GitHub Runner
+  copy:
+    # This looks for the file you downloaded in your GitHub Action step
+    src: "{{ playbook_dir }}/../downloads/node_exporter-1.7.0.linux-amd64.tar.gz"
+    dest: "/tmp/node_exporter.tar.gz"
+    mode: '0644'
+  become: true
 
-- name: Extract Node Exporter
+# 3. EXTRACT AND INSTALL
+- name: Extract Node Exporter archive
   unarchive:
     src: /tmp/node_exporter.tar.gz
     dest: /tmp
-    remote_src: yes
+    remote_src: yes # File is now local to the Backend server
+  become: true
 
-- name: Move Node Exporter binary to /usr/local/bin
+- name: Move binary to /usr/local/bin
   copy:
     src: /tmp/node_exporter-1.7.0.linux-amd64/node_exporter
     dest: /usr/local/bin/node_exporter
     mode: '0755'
-    owner: node_exporter
-    group: node_exporter
     remote_src: yes
   become: true
 
+# 4. CONFIGURE SERVICE
 - name: Create Node Exporter systemd service
   copy:
     dest: /etc/systemd/system/node_exporter.service
@@ -47,10 +53,29 @@
       WantedBy=multi-user.target
   become: true
 
-- name: Start and Enable Node Exporter
+# 5. START SERVICE
+- name: Start and enable Node Exporter
   systemd:
     name: node_exporter
     state: started
     enabled: yes
     daemon_reload: yes
+  become: true
+
+# 6. NETWORK SECURITY
+- name: Allow Node Exporter Port (9100) in Firewalld
+  firewalld:
+    port: 9100/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  become: true
+
+- name: Cleanup temporary installation files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /tmp/node_exporter.tar.gz
+    - /tmp/node_exporter-1.7.0.linux-amd64
   become: true

@@ -47,6 +47,11 @@ jobs:
             -r requirements.txt \
             exceptiongroup typing-extensions sniffio
 
+      - name: Download Node Exporter for Offline Install
+        run: |
+          mkdir -p downloads
+          wget -P downloads/ https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz      
+
       # 4. ANSIBLE CONFIGURATION (The Deployment)
       - name: Setup SSH Key
         run: |
