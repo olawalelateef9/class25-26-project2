@@ -45,31 +45,4 @@
  ## Grafana Dashboard                         http://'public IP':3000 (admin/admin)
  ## Prometheus UI                             http://'public IP':9090
 
- # Project Structure
-.
-.
-├── .github/
-│   └── workflows/
-│       └── main.yml            # The CI/CD Pipeline (Terraform + Ansible)
-├── ansible/
-│   ├── master.yml              # Main Playbook (Orchestrates all roles)
-│   ├── inventory.ini           # Generated dynamically by GitHub Actions
-│   └── roles/
-│       ├── os_hardening/       # Security & Firewall configuration
-│       ├── db_servers/         # RDS Connectivity & DB setup
-│       ├── app_servers/        # FastAPI deployment & service setup
-│       ├── node_exporter/      # Metric collector (installed on Backend)
-│       ├── monitoring_server/  # Prometheus & Grafana (installed on Bastion)
-│       ├── nginx_proxy/        # Reverse Proxy (installed on Bastion)
-│       └── vulnerability_scanning/
-├── app/
-│   ├── main.py                 # FastAPI Application Code
-│   ├── requirements.txt        # Python Dependencies
-│   └── database.py             # SQLAlchemy Connection Logic
-├── terraform/
-│   ├── main.tf                 # VPC, Subnets, and EC2 instances
-│   ├── rds.tf                  # Database instance & Subnet groups
-│   ├── security_groups.tf      # Firewall rules (Port 80, 3000, 8000, etc.)
-│   ├── outputs.tf              # IPs passed to GitHub Env
-│   └── variables.tf            # Configuration variables
-└── README.md                   # Project Documentation
+ 
