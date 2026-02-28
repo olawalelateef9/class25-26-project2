@@ -8,7 +8,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. SECURITY SCANS
+      # 1. SECURITY SCANS (Local)
       - name: Run Bandit (Local SAST)
         run: |
           pip install bandit 
@@ -16,7 +16,7 @@ jobs:
 
       # 2. TERRAFORM (Infrastructure)
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false 
 
@@ -35,11 +35,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      # 3. PREPARE OFFLINE DEPENDENCIES (The "No-NAT" Workaround)
+      # 3. PREPARE OFFLINE DEPENDENCIES
       - name: Download Pip Wheels
         run: |
           mkdir -p dependencies
-          # We force pip to grab 3.9 binaries for everything, including backports
           pip download --dest ./dependencies \
             --platform manylinux2014_x86_64 \
             --python-version 3.9 \
@@ -48,23 +47,13 @@ jobs:
             -r requirements.txt \
             exceptiongroup typing-extensions sniffio
 
-      # 4. ANSIBLE (Configuration & Deployment)
-      - name: Run Ansible Playbook
+      # 4. ANSIBLE CONFIGURATION (The Deployment)
+      - name: Setup SSH Key
         run: |
-          # Setup the SSH key
           printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
           chmod 400 key.pem
 
-
-      - name: Check App Health Via Bastion
-        run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no \
-          -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" \
-          ec2-user@${{ env.BACKEND_IP }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthz" | grep 200
-
-
-      # Create the dynamic inventory and run the playbook with extra vars
-      - name: Create the dynamic inventory and Run Playbook
+      - name: Create Inventory and Run Playbook
         run: |
           echo "[web]" > inventory.ini
           echo "bastion ansible_host=${{ env.BASTION_IP }} ansible_user=ec2-user ansible_ssh_private_key_file=key.pem" >> inventory.ini
@@ -75,8 +64,7 @@ jobs:
           
           echo "" >> inventory.ini
           echo "[all:vars]" >> inventory.ini
-          # Added ServerAliveInterval and ControlMaster for stability
-          echo "ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no -o ServerAliveInterval=30 ec2-user@${{ env.BASTION_IP }}\" -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPersist=60s'" >> inventory.ini
+          echo "ansible_ssh_common_args='-o ProxyCommand=\"ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no\" ec2-user@${{ env.BASTION_IP }}'" >> inventory.ini
 
           export ANSIBLE_HOST_KEY_CHECKING=False
           ansible-playbook -i inventory.ini ansible/master.yml \
@@ -86,11 +74,31 @@ jobs:
                           db_name=${{ env.DB_NAME }} \
                           backend_ip=${{ env.BACKEND_IP }} \
                           bastion_ip=${{ env.BASTION_IP }}"
-      # 5. REPORTING
+
+      # 5. POST-DEPLOYMENT SMOKE TEST
+      - name: Smoke Test
+        run: |
+          echo "Checking app health via Bastion..."
+          ssh -i key.pem -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" \
+            ec2-user@${{ env.BACKEND_IP }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthz" > status_code.txt
+          
+          STATUS=$(cat status_code.txt)
+          echo "App returned status: $STATUS"
+          if [ "$STATUS" == "200" ]; then
+            echo "SUCCESS: App is healthy!"
+          else
+            echo "FAILURE: App returned status $STATUS"
+            exit 1
+          fi
+
+      # 6. REPORTING & ARTIFACTS
       - name: Download Scan Report
         if: always() 
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" ec2-user@${{ env.BACKEND_IP }} "cat /tmp/scan_report.txt" > vulnerability_report.txt || echo "Report not found"
+          ssh -i key.pem -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" \
+            ec2-user@${{ env.BACKEND_IP }} "cat /tmp/scan_report.txt" > vulnerability_report.txt || echo "Report not found"
 
       - name: Upload Report
         if: always()
@@ -99,27 +107,10 @@ jobs:
           name: Techbleat-Vulnerability-Report
           path: vulnerability_report.txt
 
-      # 6. POST-DEPLOYMENT SMOKE TEST
-      - name: Smoke Test
-        run: |
-          echo "Checking app health on http://${{ env.BACKEND_IP }}:8000/healthz via Bastion..."
-          
-          # We use the Bastion to curl the Backend's internal health endpoint
-          ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }} \
-            "curl -s -o /dev/null -w '%{http_code}' http://${{ env.BACKEND_IP }}:8000/healthz" > status_code.txt
-          
-          STATUS=$(cat status_code.txt)
-          echo "App returned status: $STATUS"
-          
-          if [ "$STATUS" == "200" ]; then
-            echo "SUCCESS: App is healthy!"
-          else
-            echo "FAILURE: App returned status $STATUS"
-            exit 1
-          fi
-
-      # 7. DEBUG LOGS (Runs only if Smoke Test fails)
+      # 7. DEBUG LOGS (Only runs on failure)
       - name: Capture Backend Logs on Failure
         if: failure()
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" ec2-user@${{ env.BACKEND_IP }} "tail -n 50 /home/ec2-user/app/app.log" || echo "Log not found"
+          ssh -i key.pem -o StrictHostKeyChecking=no \
+            -o ProxyCommand="ssh -i key.pem -W %h:%p -q -o StrictHostKeyChecking=no ec2-user@${{ env.BASTION_IP }}" \
+            ec2-user@${{ env.BACKEND_IP }} "tail -n 50 /home/ec2-user/app/app.log" || echo "Log not found"
