@@ -1,6 +1,9 @@
 ---
-- name: restart nginx
-  systemd:
-    name: nginx
-    state: restarted
-  become: true
+handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+      become: true
+
+
