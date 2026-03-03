@@ -92,16 +92,41 @@ resource "aws_db_instance" "project_db" {
 
 # --- 4. SECURITY GROUPS (Firewalls) ---
 
-# Bastion SG: Entrance for Admin/Ops [cite: 21, 22]
+# Bastion SG: Entrance for Admin, Monitoring, and Web Traffic
 resource "aws_security_group" "bastion_sg" {
   name   = "bastion-sg"
   vpc_id = aws_vpc.project_network.id
 
+  # SSH Access for Ansible/Admin
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Suggestion: Change to your specific IP for better security
+    cidr_blocks = ["0.0.0.0/0"] 
+  }
+
+  # Public Web Traffic (Nginx Reverse Proxy)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Grafana Dashboard Access
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Prometheus UI Access
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -112,11 +137,12 @@ resource "aws_security_group" "bastion_sg" {
   }
 }
 
-# Backend SG: Allows traffic from Load Balancer and Bastion only [cite: 41, 43]
+# Backend SG: Allows traffic from Load Balancer and Bastion only
 resource "aws_security_group" "backend_sg" {
   name   = "backend-sg"
   vpc_id = aws_vpc.project_network.id
 
+  # SSH from Bastion only
   ingress {
     from_port       = 22
     to_port         = 22
@@ -124,11 +150,28 @@ resource "aws_security_group" "backend_sg" {
     security_groups = [aws_security_group.bastion_sg.id]
   }
 
+  # App Traffic (FastAPI) from Public Subnet / ALB Tier
   ingress {
     from_port   = 8000
     to_port     = 8000
     protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24"] # Traffic from public subnet (ALB tier)
+    cidr_blocks = ["10.0.1.0/24"] 
+  }
+
+  # App Traffic from Bastion (for Nginx Proxying)
+  ingress {
+    from_port       = 8000
+    to_port         = 8000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
+  }
+
+  # Monitoring Traffic (Node Exporter) from Bastion Prometheus
+  ingress {
+    from_port       = 9100
+    to_port         = 9100
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
   }
 
   egress {
@@ -139,7 +182,7 @@ resource "aws_security_group" "backend_sg" {
   }
 }
 
-# DB SG: Allows SQL queries only from the backend app [cite: 13, 19]
+# DB SG: Allows SQL queries only from the backend app
 resource "aws_security_group" "db_sg" {
   name        = "db-sg"
   description = "Allow inbound traffic from backend only"
