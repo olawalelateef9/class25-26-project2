@@ -3,8 +3,13 @@
 - name: Apply Hardening to Bastion
   hosts: web
   become: true
+  become_method: sudo
+  become_user: root
+  gather_facts: true
+
   roles:
     - role: os_hardening
+
 
 # 2. Then, harden the Backend
 - name: Apply Hardening to Backend
