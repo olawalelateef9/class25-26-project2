@@ -93,12 +93,12 @@
     enabled: yes
 
 - name: Allow Monitoring Ports in Firewalld
-  firewalld:
+  ansible.posix.firewalld:
     port: "{{ item }}"
     permanent: yes
     state: enabled
     immediate: yes
-  with_items:
+  loop:
     - 9090/tcp
     - 3000/tcp
     - 9093/tcp

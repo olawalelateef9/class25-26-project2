@@ -5,33 +5,39 @@
     security: yes
     state: latest
     update_cache: yes
+  become: true
 
 - name: Ensure firewalld is installed
   dnf:
     name: firewalld
     state: present
+  become: true
 
-# FIX 1: Configure SSH *before* starting the service
-- name: Pre-configure Firewalld to allow SSH
-  firewalld:
+# FIX: Configure SSH *offline* before starting the service
+# This writes the rule directly to the XML files so it's active at the first second of startup
+- name: Pre-configure Firewalld to allow SSH (Offline)
+  ansible.posix.firewalld:
     service: ssh
     permanent: yes
     state: enabled
-  # Note: 'immediate: yes' is omitted here because the service isn't running yet
+    offline: true
+  become: true
 
-# FIX 2: Now it is safe to start
+# Now it is safe to start because the SSH "hole" is already in the shield
 - name: Start and enable Firewalld
   service:
     name: firewalld
     state: started
     enabled: yes
+  become: true
 
 - name: Allow App Port (8000)
-  firewalld:
+  ansible.posix.firewalld:
     port: 8000/tcp
     permanent: yes
     state: enabled
     immediate: yes
+  become: true
 
 - name: Disable SSH password authentication
   lineinfile:
@@ -39,6 +45,7 @@
     regexp: '^PasswordAuthentication'
     line: 'PasswordAuthentication no'
     state: present
+  become: true
   notify: restart sshd
 
 - name: Force connection reset to apply settings
