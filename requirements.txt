@@ -7,3 +7,4 @@ click==8.1.7
 anyio==4.3.0
 starlette==0.38.6
 pydantic==2.8.2
+prometheus-fastapi-instrumentator==5.0.0

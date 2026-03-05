@@ -103,6 +103,7 @@ resource "aws_security_group" "bastion_sg" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] 
+    description = "SSH Access"
   }
 
   # Public Web Traffic (Nginx Reverse Proxy)
@@ -111,6 +112,7 @@ resource "aws_security_group" "bastion_sg" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP Web Traffic"
   }
 
   # Grafana Dashboard Access
@@ -119,6 +121,7 @@ resource "aws_security_group" "bastion_sg" {
     to_port     = 3000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Grafana UI"
   }
 
   # Prometheus UI Access
@@ -127,6 +130,17 @@ resource "aws_security_group" "bastion_sg" {
     to_port     = 9090
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Prometheus UI"
+  }
+
+  # Alertmanager Web UI & API
+  # This allows Prometheus to send alerts and you to view them
+  ingress {
+    from_port   = 9093
+    to_port     = 9093
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Alertmanager UI"
   }
 
   egress {

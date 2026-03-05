@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeSerializer, BadSignature
 import os
@@ -16,6 +17,8 @@ DEMO_PASS = os.environ.get("APP_DEMO_PASS", "admin")
 serializer = URLSafeSerializer(SECRET_KEY, salt=APP_NAME)
 
 app = FastAPI()
+Instrumentator().instrument(app).expose(app)
+
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
 

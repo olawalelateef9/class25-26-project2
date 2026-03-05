@@ -53,25 +53,6 @@
     - prometheus
     - promtool
 
-- name: Configure Prometheus scrape targets
-  copy:
-    dest: /etc/prometheus/prometheus.yml
-    owner: prometheus
-    group: prometheus
-    content: |
-      global:
-        scrape_interval: 15s
-      scrape_configs:
-        - job_name: 'prometheus'
-          static_configs:
-            - targets: ['localhost:9090']
-        - job_name: 'app_server_hardware'
-          static_configs:
-            - targets: ['{{ backend_ip }}:9100']
-        - job_name: 'fastapi_app_health'
-          static_configs:
-            - targets: ['{{ backend_ip }}:8000']
-
 - name: Create Prometheus systemd service
   copy:
     dest: /etc/systemd/system/prometheus.service
@@ -120,8 +101,8 @@
   with_items:
     - 9090/tcp
     - 3000/tcp
+    - 9093/tcp
   become: true
-
 
 - name: Create Grafana Dashboard Provider Directory
   file:
@@ -130,7 +111,6 @@
     owner: root
     group: grafana
   become: true
-
 
 - name: Provision Prometheus Data Source in Grafana
   copy:
@@ -177,3 +157,136 @@
     group: grafana
   become: true
   notify: restart grafana    
+
+- name: Download Alertmanager
+  get_url:
+    url: https://github.com/prometheus/alertmanager/releases/download/v0.27.0/alertmanager-0.27.0.linux-amd64.tar.gz
+    dest: /tmp/alertmanager.tar.gz
+
+- name: Extract Alertmanager
+  unarchive:
+    src: /tmp/alertmanager.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: Move Alertmanager binary
+  copy:
+    src: /tmp/alertmanager-0.27.0.linux-amd64/alertmanager
+    dest: /usr/local/bin/alertmanager
+    mode: '0755'
+    remote_src: yes
+  become: true  
+
+- name: Create Alertmanager configuration directory
+  file:
+    path: /etc/alertmanager
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  become: true
+
+- name: Create Alertmanager configuration file
+  copy:
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: prometheus
+    group: prometheus
+    content: |
+      global:
+        resolve_timeout: 5m
+        smtp_from: 'olawalelateef9@gmail.com'
+        smtp_smarthost: 'smtp.gmail.com:587'
+        smtp_auth_username: 'olawalelateef9@gmail.com'
+        smtp_auth_password: "{{ alert_manager_password }}"
+        smtp_require_tls: true
+
+      route:
+        group_by: ['alertname']
+        receiver: 'email-notifications'
+
+      receivers:
+        - name: 'email-notifications'
+          email_configs:
+            - to: 'olawalelateef9@gmail.com'
+              send_resolved: true
+  become: true
+  notify: restart alertmanager
+
+- name: Create Alertmanager systemd service
+  copy:
+    dest: /etc/systemd/system/alertmanager.service
+    content: |
+      [Unit]
+      Description=Alertmanager
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      User=prometheus
+      Group=prometheus
+      Type=simple
+      ExecStart=/usr/local/bin/alertmanager \
+        --config.file=/etc/alertmanager/alertmanager.yml
+
+      [Install]
+      WantedBy=multi-user.target
+  become: true
+
+- name: Start and enable Alertmanager
+  systemd:
+    name: alertmanager
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true
+
+- name: Configure Prometheus scrape targets (with Alerting)
+  copy:
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    content: |
+      global:
+        scrape_interval: 15s
+
+      alerting:
+        alertmanagers:
+          - static_configs:
+              - targets:
+                - localhost:9093
+
+      rule_files:
+        - "alert_rules.yml"
+
+      scrape_configs:
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:9090']
+        - job_name: 'app_server_hardware'
+          static_configs:
+            - targets: ['{{ backend_ip }}:9100']
+        - job_name: 'fastapi_app_health'
+          static_configs:
+            - targets: ['{{ backend_ip }}:8000']
+  become: true
+  notify: restart prometheus
+
+- name: Create Prometheus Alert Rules
+  copy:
+    dest: /etc/prometheus/alert_rules.yml
+    owner: prometheus
+    group: prometheus
+    content: |
+      groups:
+        - name: application_alerts
+          rules:
+            - alert: FastAPIAppDown
+              expr: up{job="fastapi_app_health"} == 0
+              for: 1m
+              labels:
+                severity: critical
+              annotations:
+                summary: "FastAPI Backend is DOWN"
+                description: "The backend instance at {{ backend_ip }} is not responding."
+  become: true
+  notify: restart prometheus

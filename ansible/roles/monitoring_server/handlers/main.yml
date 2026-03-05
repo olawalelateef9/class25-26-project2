@@ -10,3 +10,9 @@
     name: prometheus
     state: restarted
   become: true
+
+- name: restart alertmanager
+  service:
+    name: alertmanager
+    state: restarted
+  become: true  
