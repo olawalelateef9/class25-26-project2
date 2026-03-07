@@ -1,5 +1,5 @@
 ---
-# NEW: Ensures the instance is fully booted and SSH is responding before starting
+# Ensures the instance is fully booted and SSH is responding before starting
 - name: Ensure instance is ready for configuration
   wait_for_connection:
     timeout: 300
@@ -35,10 +35,10 @@
     enabled: yes
   become: true
 
-# THE STABILIZER: Runner waits 10s to ensure the firewall daemon has settled
+# THE STABILIZER: Uses the real IP address (${{ env.BASTION_IP }}) instead of the name "bastion"
 - name: Wait for SSH to stabilize after Firewall start
   wait_for:
-    host: "{{ inventory_hostname }}"
+    host: "{{ ansible_host }}"
     port: 22
     delay: 10
     timeout: 60
