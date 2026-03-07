@@ -1,4 +1,9 @@
 ---
+# NEW: Ensures the instance is fully booted and SSH is responding before starting
+- name: Ensure instance is ready for configuration
+  wait_for_connection:
+    timeout: 300
+
 - name: Update only security packages
   dnf:
     name: '*'
@@ -13,23 +18,33 @@
     state: present
   become: true
 
-# FIX: Configure SSH *offline* before starting the service
-# This writes the rule directly to the XML files so it's active at the first second of startup
+# Pre-configure SSH while service is off. Explicitly targeting the 'public' zone.
 - name: Pre-configure Firewalld to allow SSH (Offline)
   ansible.posix.firewalld:
     service: ssh
     permanent: yes
     state: enabled
+    zone: public
     offline: true
   become: true
 
-# Now it is safe to start because the SSH "hole" is already in the shield
 - name: Start and enable Firewalld
   service:
     name: firewalld
     state: started
     enabled: yes
   become: true
+
+# THE STABILIZER: Runner waits 10s to ensure the firewall daemon has settled
+- name: Wait for SSH to stabilize after Firewall start
+  wait_for:
+    host: "{{ inventory_hostname }}"
+    port: 22
+    delay: 10
+    timeout: 60
+    state: started
+  delegate_to: localhost
+  become: false
 
 - name: Allow App Port (8000)
   ansible.posix.firewalld:
