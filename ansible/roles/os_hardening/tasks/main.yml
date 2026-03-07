@@ -1,5 +1,5 @@
 ---
-# Ensures the instance is fully booted and SSH is responding before starting
+# Ensures the instance is fully booted before starting
 - name: Ensure instance is ready for configuration
   wait_for_connection:
     timeout: 300
@@ -18,7 +18,7 @@
     state: present
   become: true
 
-# Pre-configure SSH while service is off. Explicitly targeting the 'public' zone.
+# Pre-configure SSH while service is off
 - name: Pre-configure Firewalld to allow SSH (Offline)
   ansible.posix.firewalld:
     service: ssh
@@ -35,15 +35,15 @@
     enabled: yes
   become: true
 
-# THE STABILIZER: Uses the real IP address (${{ env.BASTION_IP }}) instead of the name "bastion"
+# THE STABILIZER: Smart detection for Public vs Private hosts
 - name: Wait for SSH to stabilize after Firewall start
   wait_for:
-    host: "{{ ansible_host }}"
+    host: "{{ '127.0.0.1' if ansible_ssh_common_args is defined else ansible_host }}"
     port: 22
     delay: 10
     timeout: 60
     state: started
-  delegate_to: localhost
+  delegate_to: "{{ 'localhost' if ansible_ssh_common_args is not defined else inventory_hostname }}"
   become: false
 
 - name: Allow App Port (8000)
