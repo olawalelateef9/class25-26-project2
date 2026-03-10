@@ -36,14 +36,16 @@
   become: true
 
 # THE STABILIZER: Smart detection for Public vs Private hosts
+# This task now runs ENTIRELY on the GitHub Runner for the Bastion
 - name: Wait for SSH to stabilize after Firewall start
   wait_for:
-    host: "{{ '127.0.0.1' if ansible_ssh_common_args is defined else ansible_host }}"
+    host: "{{ ansible_host if ansible_ssh_common_args is not defined else '127.0.0.1' }}"
     port: 22
     delay: 10
     timeout: 60
     state: started
   delegate_to: "{{ 'localhost' if ansible_ssh_common_args is not defined else inventory_hostname }}"
+  connection: "{{ 'local' if ansible_ssh_common_args is not defined else 'smart' }}"
   become: false
 
 - name: Allow App Port (8000)
