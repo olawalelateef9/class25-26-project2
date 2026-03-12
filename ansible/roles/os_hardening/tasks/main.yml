@@ -45,8 +45,9 @@
     state: started
   delegate_to: "{{ 'localhost' if ansible_ssh_common_args is not defined else inventory_hostname }}"
   vars:
-    # This forces the task to run locally on the runner without checking the Bastion's SSH state
     ansible_connection: local
+    # THIS IS THE FIX: Forces the Runner to use its own Python, not the Bastion's version
+    ansible_python_interpreter: "{{ ansible_playbook_python if ansible_ssh_common_args is not defined else ansible_python_interpreter }}"
   become: false
 
 - name: Allow App Port (8000)
