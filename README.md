@@ -45,4 +45,105 @@
  ## Grafana Dashboard                         http://'public IP':3000 (admin/admin)
  ## Prometheus UI                             http://'public IP':9090
 
- 
+# 🛠️ Tech Stack
+## Cloud: AWS (EC2, RDS, VPC)
+
+## Configuration: Ansible
+
+## Web Server: Nginx
+
+## App Framework: FastAPI (Python 3.9)
+
+## Database: PostgreSQL
+
+## Monitoring: Prometheus, Grafana, Node Exporter
+
+## CI/CD: GitHub Actions
+
+
+                +-----------------------------+
+                |       GitHub Actions        |
+                |  (CI runner in the cloud)   |
+                +-----------------------------+
+                         |
+                         | 1) Checkout code, run Bandit (local)
+                         | 2) Terraform: create Bastion + Backend, RDS, etc.
+                         | 3) Download:
+                         |      - Python wheels → ./dependencies
+                         |      - Node Exporter → ./downloads
+                         |
+                         | 4) Run Ansible master.yml
+                         v
+     ===================================================================
+                         Ansible Playbook: master.yml
+     ===================================================================
+                         |
+                         |  (uses SSH + key.pem to reach Bastion,
+                         |   Bastion then reaches Backend)
+                         v
++-------------------------------------------------------------+
+|                         BASTION (web)                      |
+|            Public subnet, has internet access              |
++-------------------------------------------------------------+
+| Roles from master.yml that run here:                       |
+|                                                             |
+| 1) os_hardening                                             |
+|    - Secure OS, firewall, SSH                              |
+|                                                             |
+| 2) monitoring_server                                        |
+|    - Install Prometheus, Grafana, Alertmanager             |
+|    - Prometheus scrapes backend:                           |
+|        - {{ backend_ip }}:9100 (Node Exporter)             |
+|        - {{ backend_ip }}:8000 (FastAPI health)            |
+|                                                             |
+| 3) nginx_proxy                                              |
+|    - Install Nginx                                         |
+|    - Proxy public HTTP → http://{{ backend_ip }}:8000      |
+|                                                             |
+| 4) vulnerability_scanning (delegated tasks)                |
+|    - Copy key.pem here                                     |
+|    - Install Bandit, Safety                                |
+|    - SSH/rsync to backend to pull app code + requirements  |
+|    - Run scans and send results back to backend report     |
++-------------------------------------------------------------+
+                         ^
+                         |  SSH (jump host)
+                         |
++-------------------------------------------------------------+
+|                         BACKEND (backend)                  |
+|           Private subnet, NO direct internet               |
++-------------------------------------------------------------+
+| Roles from master.yml that run here:                       |
+|                                                             |
+| 1) os_hardening                                             |
+|    - Secure OS, firewall, SSH                              |
+|    - Open app port 8000                                    |
+|                                                             |
+| 2) db_servers                                               |
+|    - Configure DB tier (RDS connection, users, etc.)       |
+|                                                             |
+| 3) app_servers                                              |
+|    - Copy from GitHub runner → backend:                    |
+|        - app/                                              |
+|        - requirements.txt                                  |
+|        - dependencies/  (Python wheels)                    |
+|    - Offline pip install using local dependencies/         |
+|    - Start FastAPI (uvicorn) on port 8000                  |
+|    - Health check /healthz                                 |
+|                                                             |
+| 4) node_exporter                                            |
+|    - Copy Node Exporter tarball from runner → backend      |
+|    - Install and run node_exporter on port 9100            |
+|                                                             |
+| 5) vulnerability_scanning                                   |
+|    - Receive unified report /tmp/scan_report.txt           |
+|      (written using results gathered from Bastion)         |
++-------------------------------------------------------------+
+
+                ↑                                          ↑
+                |                                          |
+          External user                             Prometheus on Bastion
+          (browser)                                  scrapes Backend
+   http://BASTION_PUBLIC_IP/                    (9100 & 8000 via private IP)
+        │
+        └─> Nginx on Bastion → http://BACKEND_IP:8000
